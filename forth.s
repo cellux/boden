@@ -6,8 +6,8 @@
 /* linux system calls */
 
 .macro sys_exit status
-  mov eax, 0x01
   mov ebx, \status
+  mov eax, 0x01
   int 0x80
 .endm
 
@@ -39,8 +39,7 @@ $last_xt = 0
 .endm
 
 begin_dict_entry 2 "s\x22"
-
-s_quote:
+_squote:
   # s"<blank>...
   #          ^ ESI points to one blank after s"
   push_word esi
@@ -54,7 +53,8 @@ s_quote:
 
 # found closing quote
 1:
-  # EDI points to one byte after the closing quote
+  # esi: first byte of string
+  # edi: one byte after the closing quote
   mov eax, edi
   dec eax
   sub eax, esi      # eax = length of string
@@ -63,16 +63,65 @@ s_quote:
   ret
 
 begin_dict_entry 4 "exit"
-  sys_exit 0
+_exit:
+  pop_word eax
+  sys_exit eax
 
 begin_dict_entry 7 "println"
+_println:
   pop_word edi # length
   pop_word edx # addr
   sys_write 1, edx, edi
   sys_write 1, msg_lf, 1
   ret
 
-begin_dict_entry 6 "_start"
+begin_dict_entry 1 "+"
+_add:
+  pop_word eax
+  add [ebp-4], eax
+  ret
+
+begin_dict_entry 1 "-"
+_sub:
+  pop_word eax
+  sub [ebp-4], eax
+  ret
+
+begin_dict_entry 1 "*"
+_mul:
+  pop_word eax
+  mul dword ptr [ebp-4]
+  mov [ebp-4], eax
+  ret
+
+begin_dict_entry 1 "/"
+_div:
+  pop_word ebx
+  pop_word eax
+  xor edx, edx
+  div ebx
+  push_word eax
+  ret
+
+begin_dict_entry 1 "."
+_dot:
+  pop_word eax
+  xor ecx, ecx
+0:
+  xor edx, edx
+  div dword ptr [base]
+  push edx              # edx: remainder (next digit)
+  inc ecx               # ecx: number of digits
+  or eax, eax           # eax: quotient
+  jnz 0b
+1:
+  pop edx
+  push ecx
+  sys_write 1, digit_chars+edx, 1
+  pop ecx
+  loop 1b
+  sys_write 1, msg_lf, 1
+  ret
 
 _start:
   # return stack grows top -> down
@@ -95,7 +144,7 @@ interpret:
   mov al, [esi]
   cmp al, 0x20
   jz 0f
-  and al, 0xe0
+  test al, 0xe0
   jnz parse_word
 0:
   inc esi
@@ -123,7 +172,7 @@ compare_with_next_entry:
   lodsb
   cmp al, 0x20
   jz word_found
-  and al, 0xe0      # control characters are also blank
+  test al, 0xe0      # control characters are also blank
   jnz compare_with_next_entry
 
 word_found:
@@ -131,14 +180,52 @@ word_found:
   call edi
   jmp interpret
 
+is_digit:
+  cmp bl, 0x30
+  jb not_digit
+  cmp bl, 0x3a
+  jb 0f
+  and bl, 0x20      # a..z -> A..Z
+  sub bl, (0x41-0x3a)
+0:
+  sub bl, 0x30
+  cmp bl, [base]
+  jb yes_digit
+not_digit:
+  mov ebx, -1
+yes_digit:
+  ret
+
 word_not_found:
   mov esi, edx      # first byte of unknown word
+  push edx
+
+  xor eax, eax
+  xor ebx, ebx
+0:
+  mov bl, [esi]
+  call is_digit
+  or ebx, ebx
+  js end_of_number
+  inc esi
+  mul dword ptr [base]
+  add eax, ebx
+  jmp 0b
+
+end_of_number:
+  pop edx
+  cmp esi, edx
+  je not_a_number
+  push_word eax
+  jmp interpret
+
+not_a_number:
   # look for closing whitespace
 0:
   mov al, [esi]
   cmp al, 0x20
   jz 2f
-  and al, 0xe0
+  test al, 0xe0
   jz 2f
 1:
   inc esi
@@ -167,6 +254,12 @@ msg_lf:
 msg_question_mark:
   .byte 0x3f
 
+base:
+  .dc.a 10
+
+digit_chars:
+  .ascii "0123456789abcdefghijklmnopqrstuvwxyz"
+
 forth_source:
   .incbin "forth.f"
   .byte 0x20        # sentinel
@@ -179,11 +272,12 @@ last_xt:
   .dc.a 0
 
 data_stack:
-  .space 1024 * 4
+  .space 4096
 
 return_stack:
-  .space 1024 * 4
+  .space 4096
 return_stack_end:
 
 # forth.f definitions will be compiled from here
 dictionary:
+  .space 1048576
