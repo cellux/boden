@@ -38,6 +38,32 @@ $last_xt = 0
   mov \dst, [ebp]
 .endm
 
+begin_dict_entry 1 "\\"
+_comment_backslash:
+  mov al, 0x0a      # line feed
+  mov edi, esi
+  mov ecx, 1024     # max length of a line comment
+  repne scasb
+  jz 1f
+  sys_write 1, msg_comment_too_long, msg_comment_too_long_len
+  sys_exit 1
+1:
+  mov esi, edi      # address of next byte in parse buffer
+  ret
+
+begin_dict_entry 1 "("
+_comment_paren:
+  mov al, 0x29      # ')'
+  mov edi, esi
+  mov ecx, 65536    # max length of a comment
+  repne scasb
+  jz 1f
+  sys_write 1, msg_comment_too_long, msg_comment_too_long_len
+  sys_exit 1
+1:
+  mov esi, edi      # address of next byte in parse buffer
+  ret
+
 begin_dict_entry 2 "s\x22"
 _squote:
   # s"<blank>...
@@ -103,6 +129,28 @@ _div:
   push_word eax
   ret
 
+begin_dict_entry 1 "="
+_eq:
+  pop_word eax
+  pop_word ebx
+  mov edx, -1
+  cmp eax, ebx
+  je 1f
+  mov edx, 0
+1:
+  push_word edx
+  ret
+
+begin_dict_entry 6 "assert"
+_assert:
+  pop_word eax
+  or eax, eax
+  jnz 1f
+  sys_write 1, msg_assertion_failed, msg_assertion_failed_len
+  sys_exit 1
+1:
+  ret
+
 begin_dict_entry 1 "."
 _dot:
   pop_word eax
@@ -121,6 +169,32 @@ _dot:
   pop ecx
   loop 1b
   sys_write 1, msg_lf, 1
+  ret
+
+begin_dict_entry 3 "dup"
+_dup:
+  mov eax, [ebp-4]
+  push_word eax
+  ret
+
+begin_dict_entry 4 "2dup"
+_twodup:
+  mov eax, [ebp-8]
+  push_word eax
+  mov eax, [ebp-8]
+  push_word eax
+  ret
+
+begin_dict_entry 4 "drop"
+_drop:
+  sub ebp, 4
+  ret
+
+begin_dict_entry 2 "c@"
+_charat:
+  pop_word ebx
+  movzx eax, byte ptr [ebx]
+  push_word eax
   ret
 
 _start:
@@ -181,15 +255,17 @@ word_found:
   jmp interpret
 
 is_digit:
-  cmp bl, 0x30
+  # ebx: ASCII value to parse
+  # edi: radix (base)
+  cmp ebx, 0x30
   jb not_digit
-  cmp bl, 0x3a
+  cmp ebx, 0x3a
   jb 0f
-  and bl, 0x20      # a..z -> A..Z
-  sub bl, (0x41-0x3a)
+  and ebx, 0xdf     # a..z -> A..Z
+  sub ebx, (0x41-0x3a)
 0:
-  sub bl, 0x30
-  cmp bl, [base]
+  sub ebx, 0x30
+  cmp ebx, edi
   jb yes_digit
 not_digit:
   mov ebx, -1
@@ -197,27 +273,62 @@ yes_digit:
   ret
 
 word_not_found:
-  mov esi, edx      # first byte of unknown word
-  push edx
+  mov esi, edx      # edx: first byte of unknown word
+  mov edi, [base]
 
+parse_digits:
   xor eax, eax
   xor ebx, ebx
-0:
+  push edx
+
+parse_digit:
   mov bl, [esi]
   call is_digit
   or ebx, ebx
   js end_of_number
   inc esi
-  mul dword ptr [base]
+  mul edi
   add eax, ebx
-  jmp 0b
+  jmp parse_digit
 
 end_of_number:
   pop edx
   cmp esi, edx
   je not_a_number
+  mov ebx, esi
+  sub ebx, edx
+  cmp ebx, 1
+  jne no_base_override
+  or eax, eax
+  jnz no_base_override
+
+  # first character of word is '0': check for x/b/o prefix
+  mov bl, [esi]
+  cmp bl, 0x78
+  je base_16
+  cmp bl, 0x6f
+  je base_8
+  cmp bl, 0x62
+  je base_2
+
+no_base_override:
   push_word eax
   jmp interpret
+
+base_16:
+  inc esi
+  mov edi, 16
+  jmp parse_digits
+
+base_8:
+  inc esi
+  mov edi, 8
+  jmp parse_digits
+
+base_2:
+  inc esi
+  mov edi, 2
+  jmp parse_digits
 
 not_a_number:
   # look for closing whitespace
@@ -245,8 +356,10 @@ msg_\name\():
 msg_\name\()_len = . - msg_\name
 .endm
 
+msg comment_too_long "comment too long: "
 msg string_too_long "string too long: "
 msg word_not_found "word not found: "
+msg assertion_failed "assertion failed"
 
 msg_lf:
   .byte 0x0a
