@@ -450,7 +450,46 @@ yes_digit:
 
 unknown_word:
   mov edx, esi      # first byte of unknown word
+
+  mov bl, [esi]
+  cmp bl, 0x23      # '#'
+  je base_10
+  cmp bl, 0x24      # '$'
+  je base_16
+  cmp bl, 0x25      # '%'
+  je base_2
+
   mov edi, [base]
+  jmp parse_number
+
+base_10:
+  mov edi, 10
+  jmp skip_base_prefix
+
+base_16:
+  mov edi, 16
+  jmp skip_base_prefix
+
+base_2:
+  mov edi, 2
+  jmp skip_base_prefix
+
+skip_base_prefix:
+  inc esi
+
+parse_number:
+  xor ecx, ecx            # sign: 0 = positive, 1 = negative
+  mov bl, [esi]
+  cmp bl, 0x2d            # '-'
+  jne check_first_digit
+  inc ecx                 # negative
+  inc esi
+
+check_first_digit:
+  mov bl, [esi]
+  call is_digit
+  or ebx, ebx
+  js not_a_number
 
 parse_digits:
   xor eax, eax
@@ -471,40 +510,13 @@ end_of_number:
   pop edx
   cmp esi, edx
   je not_a_number
-  mov ebx, esi
-  sub ebx, edx
-  cmp ebx, 1
-  jne no_base_override
-  or eax, eax
-  jnz no_base_override
 
-  # first character of word is '0': check for x/b/o prefix
-  mov bl, [esi]
-  cmp bl, 0x78
-  je base_16
-  cmp bl, 0x6f
-  je base_8
-  cmp bl, 0x62
-  je base_2
-
-no_base_override:
+  or ecx, ecx
+  jz positive_number
+  neg eax
+positive_number:
   push_word eax
   jmp interpret
-
-base_16:
-  inc esi
-  mov edi, 16
-  jmp parse_digits
-
-base_8:
-  inc esi
-  mov edi, 8
-  jmp parse_digits
-
-base_2:
-  inc esi
-  mov edi, 2
-  jmp parse_digits
 
 not_a_number:
   call skip_until_whitespace

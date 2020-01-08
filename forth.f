@@ -8,26 +8,27 @@
 
 \ base may be temporarily overridden via the following number prefixes:
 \
-\ 0x (base 16)
-\ 0o (base 8)
-\ 0b (base 2)
-1234 0x4d2 = assert
-1234 0o2322 = assert
-1234 0b10011010010 = assert
+\ # (base 10)
+\ $ (base 16)
+\ % (base 2)
+1234 #1234 = assert
+1234 $4d2 = assert
+1234 %10011010010 = assert
 
-\ prefixes on their own parse as zero
-0x 0 = assert
-0o 0 = assert
-0b 0 = assert
+\ negative numbers
+-5 3 + -2 = assert
+-1234 #-1234 = assert
+-1234 $-4d2 = assert
+-1234 %-10011010010 = assert
 
 s" Hello, world!"
 ( "<chars><dquote>" -- addr len )
 13 = assert
-dup 0 + c@ 0x48 = assert  \ H
-dup 1 + c@ 0x65 = assert  \ e
-dup 2 + c@ 0x6c = assert  \ l
-dup 3 + c@ 0x6c = assert  \ l
-dup 12 + c@ 0x21 = assert \ !
+dup 0 + c@ $48 = assert  \ H
+dup 1 + c@ $65 = assert  \ e
+dup 2 + c@ $6c = assert  \ l
+dup 3 + c@ $6c = assert  \ l
+dup 12 + c@ $21 = assert \ !
 drop
 
 : square dup * ;
