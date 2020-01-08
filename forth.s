@@ -12,19 +12,24 @@
 .endm
 
 .macro sys_write fd buf count
-  mov eax, 0x04
   mov ebx, \fd
   lea ecx, [\buf]
   lea edx, [\count]
+  mov eax, 0x04
   int 0x80
 .endm
 
 $last_xt = 0
 
-.macro begin_dict_entry namelen name
-  .dc.a $last_xt
-  .ascii "\name"
-  .dc.b \namelen
+.macro begin_dict_entry name immediate
+  .dc.a $last_xt    # link
+0:
+  .ascii "\name"    # name
+  .ifb \immediate
+  .dc.b .-0b        # namelen
+  .else
+  .dc.b .-0b+0x20   # namelen + immediate
+  .endif
   $last_xt = .
 .endm
 
@@ -38,89 +43,116 @@ $last_xt = 0
   mov \dst, [ebp]
 .endm
 
-begin_dict_entry 1 "\\"
-_comment_backslash:
-  mov al, 0x0a      # line feed
-  mov edi, esi
-  mov ecx, 1024     # max length of a line comment
-  repne scasb
-  jz 1f
-  sys_write 1, msg_comment_too_long, msg_comment_too_long_len
-  sys_exit 1
-1:
-  mov esi, edi      # address of next byte in parse buffer
+skip_while_whitespace:
+  mov al, [esi]
+  cmp al, 0x20
+  jz 0f
+  test al, 0xe0
+  jz 0f
+  ret
+0:
+  inc esi
+  jmp skip_while_whitespace
+
+skip_until_whitespace:
+  mov al, [esi]
+  cmp al, 0x20
+  jz 0f
+  test al, 0xe0
+  jz 0f
+  inc esi
+  jmp skip_until_whitespace
+0:
   ret
 
-begin_dict_entry 1 "("
-_comment_paren:
-  mov al, 0x29      # ')'
+begin_dict_entry "parse"
+_parse:
+  pop_word eax      # al = end delimiter
   mov edi, esi
-  mov ecx, 65536    # max length of a comment
+  mov ecx, 0x10000  # max length (64k)
   repne scasb
   jz 1f
-  sys_write 1, msg_comment_too_long, msg_comment_too_long_len
-  sys_exit 1
-1:
-  mov esi, edi      # address of next byte in parse buffer
-  ret
-
-begin_dict_entry 2 "s\x22"
-_squote:
-  # s"<blank>...
-  #          ^ ESI points to one blank after s"
-  push_word esi
-  mov al, 0x22      # double quote
-  mov edi, esi
-  mov ecx, 1024     # max length of a string
-  repne scasb
-  jz 1f
-  sys_write 1, msg_string_too_long, msg_string_too_long_len
+  sys_write 1, msg_parse_overflow, msg_parse_overflow_len
   sys_exit 1
 
-# found closing quote
+# found end delimiter
 1:
   # esi: first byte of string
-  # edi: one byte after the closing quote
+  # edi: one byte after the end delimiter
   mov eax, edi
   dec eax
   sub eax, esi      # eax = length of string
-  push_word eax
-  mov esi, edi      # address of next byte in parse buffer
+  push_word esi     # addr
+  push_word eax     # len
+  mov esi, edi      # esi = address of next byte in parse buffer
   ret
 
-begin_dict_entry 4 "exit"
+begin_dict_entry "\\"
+_comment_backslash:
+  mov eax, 0x0a     # line feed
+  push_word eax
+  call _parse
+  sub ebp, 8        # drop return values
+  ret
+
+begin_dict_entry "("
+_comment_paren:
+  mov eax, 0x29     # ')'
+  push_word eax
+  call _parse
+  sub ebp, 8        # drop return values
+  ret
+
+begin_dict_entry "s\x22"
+_squote:
+  mov eax, 0x22
+  push_word eax
+  jmp _parse
+
+begin_dict_entry "parse-name"
+_parse_name:
+  call skip_while_whitespace
+  push_word esi     # addr
+  mov edx, esi
+  call skip_until_whitespace
+  mov eax, esi
+  sub eax, edx
+  push_word eax     # len
+  ret
+
+begin_dict_entry "exit"
 _exit:
   pop_word eax
   sys_exit eax
 
-begin_dict_entry 7 "println"
+begin_dict_entry "println"
 _println:
-  pop_word edi # length
-  pop_word edx # addr
+  pop_word edi      # len
+  pop_word edx      # addr
   sys_write 1, edx, edi
   sys_write 1, msg_lf, 1
   ret
 
-begin_dict_entry 1 "+"
+begin_dict_entry "+"
 _add:
   pop_word eax
   add [ebp-4], eax
   ret
 
-begin_dict_entry 1 "-"
+begin_dict_entry "-"
 _sub:
   pop_word eax
   sub [ebp-4], eax
   ret
 
-begin_dict_entry 1 "*"
+begin_dict_entry "*"
 _mul:
   pop_word eax
   mul dword ptr [ebp-4]
   mov [ebp-4], eax
   ret
 
-begin_dict_entry 1 "/"
+begin_dict_entry "/"
 _div:
   pop_word ebx
   pop_word eax
@@ -129,29 +161,30 @@ _div:
   push_word eax
   ret
 
-begin_dict_entry 1 "="
+begin_dict_entry "="
 _eq:
   pop_word eax
   pop_word ebx
-  mov edx, -1
+  mov edx, -1       # true (equal)
   cmp eax, ebx
   je 1f
-  mov edx, 0
+  mov edx, 0        # false (not equal)
 1:
   push_word edx
   ret
 
-begin_dict_entry 6 "assert"
+begin_dict_entry "assert"
 _assert:
   pop_word eax
   or eax, eax
   jnz 1f
   sys_write 1, msg_assertion_failed, msg_assertion_failed_len
+  # TODO: print line number and source from parse buffer
   sys_exit 1
 1:
   ret
 
-begin_dict_entry 1 "."
+begin_dict_entry "."
 _dot:
   pop_word eax
   xor ecx, ecx
@@ -171,13 +204,25 @@ _dot:
   sys_write 1, msg_lf, 1
   ret
 
-begin_dict_entry 3 "dup"
+begin_dict_entry "dec"
+_dec:
+  mov eax, 10
+  mov [base], eax
+  ret
+
+begin_dict_entry "hex"
+_hex:
+  mov eax, 16
+  mov [base], eax
+  ret
+
+begin_dict_entry "dup"
 _dup:
   mov eax, [ebp-4]
   push_word eax
   ret
 
-begin_dict_entry 4 "2dup"
+begin_dict_entry "2dup"
 _twodup:
   mov eax, [ebp-8]
   push_word eax
@@ -185,16 +230,153 @@ _twodup:
   push_word eax
   ret
 
-begin_dict_entry 4 "drop"
+begin_dict_entry "drop"
 _drop:
   sub ebp, 4
   ret
 
-begin_dict_entry 2 "c@"
-_charat:
+begin_dict_entry "c@"
+_char_at:
   pop_word ebx
   movzx eax, byte ptr [ebx]
   push_word eax
+  ret
+
+begin_dict_entry "here"
+_here:
+  mov eax, [here]
+  push_word eax
+  ret
+
+begin_dict_entry "allot"
+_allot:
+  pop_word eax
+  add [here], eax
+  ret
+
+begin_dict_entry "base"
+_base:
+  mov eax, [base]
+  push_word eax
+  ret
+
+begin_dict_entry "create"
+_create:
+  call _parse_name
+  mov edi, [here]
+  mov eax, [last_xt]
+  stosd           # link field
+  mov edx, esi
+  pop_word ecx    # ecx = len
+  pop_word esi    # esi = addr
+  push ecx
+  rep movsb       # name
+  pop eax
+  stosb           # namelen
+  mov [last_xt], edi
+
+  # compile the following:
+  #
+  #   mov eax, data       B8 .. .. .. ..
+  #   mov [ebp], eax      89 45 00
+  #   add ebp, 4          83 C5 04
+  #   ret                 C3
+  #
+  # data:
+
+  mov al, 0xb8
+  stosb
+  lea eax, [edi+4+3+3+1]
+  stosd
+  mov eax, 0x83004589
+  stosd
+  mov ax, 0x04c5
+  stosw
+  mov al, 0xc3
+  stosb
+  mov [here], edi
+  mov esi, edx
+  ret
+
+begin_dict_entry "'"
+_tick:
+  call skip_while_whitespace
+
+parse_word:
+  mov ebx, [last_xt]
+  mov edx, esi      # first character of word to parse
+
+compare_next:
+  or ebx,ebx        # sentinel?
+  jz word_not_found
+
+  mov edi, ebx      # current xt
+  dec edi
+  mov cl, [edi]     # namelen
+  and ecx, 0x1f     # zero out all other bits, max(namelen) = 31
+  sub edi, ecx      # first character of name in dictionary entry
+  mov ebx, [edi-4]  # previous xt
+  mov esi, edx      # first character of word to parse
+  repe cmpsb
+  jnz compare_next
+
+  # if next char in source is blank, we found the word
+  lodsb
+  cmp al, 0x20
+  jz word_found
+  test al, 0xe0      # control characters are also blank
+  jnz compare_next
+
+word_found:
+  inc edi           # skip namelen, edi = xt
+  push_word edi
+  ret
+
+word_not_found:
+  mov esi, edx
+  xor eax, eax
+  push_word eax     # false
+  ret
+
+begin_dict_entry ":"
+_colon:
+  call _create
+  # definition shall overwrite the default behavior compiled by create
+  mov edi, [last_xt]
+  mov [here], edi
+  mov eax, -1           # compilation state
+  mov [state], eax
+  ret
+
+begin_dict_entry ";" immediate
+_semicolon:
+  mov edi, [here]
+  mov al, 0xc3          # RET
+  stosb
+  mov [here], edi
+  mov eax, 0            # interpretation state
+  mov [state], eax
+  ret
+
+begin_dict_entry "immediate"
+_immediate:
+  mov edi, [last_xt]
+  dec edi             # edi: namelen
+  mov al, [edi]
+  or al, 0x20         # set immediate bit
+  stosb
+  ret
+
+begin_dict_entry "@"
+  mov ebx, [ebp-4]
+  mov eax, [ebx]
+  mov [ebp-4], eax
+  ret
+
+begin_dict_entry "!"
+  pop_word ebx
+  pop_word eax
+  mov [ebx], eax
   ret
 
 _start:
@@ -204,8 +386,8 @@ _start:
   # data stack grows bottom -> up
   lea ebp, [data_stack]
 
-  # esi = forth source pointer
-  lea esi, [forth_source]
+  # esi = parse buffer pointer
+  lea esi, [parse_buffer]
 
   lea eax, [dictionary]
   mov [here], eax
@@ -214,43 +396,37 @@ _start:
   mov [last_xt], eax
 
 interpret:
-  # skip whitespace
-  mov al, [esi]
-  cmp al, 0x20
-  jz 0f
-  test al, 0xe0
-  jnz parse_word
-0:
-  inc esi
+  call _tick
+  pop_word edi
+  or edi, edi
+  jz unknown_word
+
+  mov cl, [edi-1]   # namelen
+  mov eax, [state]
+  or eax, eax
+  jz execute_word
+
+compile_word:
+  test cl, 0x20     # immediate?
+  jnz execute_word
+
+  # compile a call to the address of the word
+
+  mov ebx, edi      # xt
+  mov edi, [here]   # next free location in dictionary
+  mov al, 0xe8      # CALL
+  stosb
+  # convert address to IP-relative
+  push edi
+  add edi, 4        # address of location after CALL instruction
+  mov eax, ebx      # absolute address of xt
+  sub eax, edi      # relative address of xt
+  pop edi
+  stosd
+  mov [here], edi
   jmp interpret
 
-parse_word:
-  mov ebx, [last_xt]
-  mov edx, esi      # first character of word to parse
-
-compare_with_next_entry:
-  or ebx,ebx
-  jz word_not_found
-
-  mov edi, ebx      # current xt
-  dec edi
-  mov cl, [edi]     # namelen
-  and ecx, 0x1f     # zero out all other bits, max(namelen) = 32
-  sub edi, ecx      # first character of name in dictionary entry
-  mov ebx, [edi-4]  # previous xt
-  mov esi, edx      # first character of word to parse
-  repe cmpsb
-  jnz compare_with_next_entry
-
-  # if next char in source is blank, we found the word
-  lodsb
-  cmp al, 0x20
-  jz word_found
-  test al, 0xe0      # control characters are also blank
-  jnz compare_with_next_entry
-
-word_found:
-  inc edi           # skip namelen, edi = xt
+execute_word:
   call edi
   jmp interpret
 
@@ -272,8 +448,8 @@ not_digit:
 yes_digit:
   ret
 
-word_not_found:
-  mov esi, edx      # edx: first byte of unknown word
+unknown_word:
+  mov edx, esi      # first byte of unknown word
   mov edi, [base]
 
 parse_digits:
@@ -331,18 +507,8 @@ base_2:
   jmp parse_digits
 
 not_a_number:
-  # look for closing whitespace
-0:
-  mov al, [esi]
-  cmp al, 0x20
-  jz 2f
-  test al, 0xe0
-  jz 2f
-1:
-  inc esi
-  jmp 0b
-2:
-  sub esi, edx      # length of unknown word
+  call skip_until_whitespace
+  sub esi, edx                      # esi = length of unknown word
   sys_write 1, edx, esi
   sys_write 1, msg_question_mark, 1
   sys_write 1, msg_lf, 1
@@ -356,9 +522,7 @@ msg_\name\():
 msg_\name\()_len = . - msg_\name
 .endm
 
-msg comment_too_long "comment too long: "
-msg string_too_long "string too long: "
-msg word_not_found "word not found: "
+msg parse_overflow "parse overflow"
 msg assertion_failed "assertion failed"
 
 msg_lf:
@@ -370,10 +534,13 @@ msg_question_mark:
 base:
   .dc.a 10
 
+state:
+  .dc.a 0
+
 digit_chars:
   .ascii "0123456789abcdefghijklmnopqrstuvwxyz"
 
-forth_source:
+parse_buffer:
   .incbin "forth.f"
   .byte 0x20        # sentinel
 

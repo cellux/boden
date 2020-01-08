@@ -22,7 +22,6 @@
 
 s" Hello, world!"
 ( "<chars><dquote>" -- addr len )
-2dup
 13 = assert
 dup 0 + c@ 0x48 = assert  \ H
 dup 1 + c@ 0x65 = assert  \ e
@@ -30,6 +29,12 @@ dup 2 + c@ 0x6c = assert  \ l
 dup 3 + c@ 0x6c = assert  \ l
 dup 12 + c@ 0x21 = assert \ !
 drop
-println
+
+: square dup * ;
+5 square 25 = assert
+6 square 36 = assert
+7 square 49 = assert
+
+s" All tests successful!" println
 
 0 exit
