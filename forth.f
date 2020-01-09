@@ -21,6 +21,10 @@
 -1234 $-4d2 = assert
 -1234 %-10011010010 = assert
 
+\ character literals
+'x' 120 = assert
+'!' $21 = assert
+
 s" Hello, world!"
 ( "<chars><dquote>" -- addr len )
 13 = assert

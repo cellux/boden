@@ -46,9 +46,7 @@ $last_xt = 0
 skip_while_whitespace:
   mov al, [esi]
   cmp al, 0x20
-  jz 0f
-  test al, 0xe0
-  jz 0f
+  jbe 0f
   ret
 0:
   inc esi
@@ -57,9 +55,7 @@ skip_while_whitespace:
 skip_until_whitespace:
   mov al, [esi]
   cmp al, 0x20
-  jz 0f
-  test al, 0xe0
-  jz 0f
+  jbe 0f
   inc esi
   jmp skip_until_whitespace
 0:
@@ -179,6 +175,7 @@ _assert:
   or eax, eax
   jnz 1f
   sys_write 1, msg_assertion_failed, msg_assertion_failed_len
+  sys_write 1, msg_lf, 1
   # TODO: print line number and source from parse buffer
   sys_exit 1
 1:
@@ -323,9 +320,7 @@ compare_next:
   # if next char in source is blank, we found the word
   lodsb
   cmp al, 0x20
-  jz word_found
-  test al, 0xe0      # control characters are also blank
-  jnz compare_next
+  ja compare_next
 
 word_found:
   inc edi           # skip namelen, edi = xt
@@ -452,6 +447,8 @@ unknown_word:
   mov edx, esi      # first byte of unknown word
 
   mov bl, [esi]
+  cmp bl, 0x27      # single quote
+  je char_literal
   cmp bl, 0x23      # '#'
   je base_10
   cmp bl, 0x24      # '$'
@@ -461,6 +458,18 @@ unknown_word:
 
   mov edi, [base]
   jmp parse_number
+
+char_literal:
+  mov bl, [esi+2]
+  cmp bl, 0x27      # single quote
+  jne not_a_number
+  mov bl, [esi+3]
+  cmp bl, 0x20
+  ja not_a_number
+  movzx eax, byte ptr [esi+1]
+  push_word eax
+  add esi, 4
+  jmp interpret
 
 base_10:
   mov edi, 10
