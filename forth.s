@@ -144,7 +144,7 @@ _sub:
 begin_dict_entry "*"
 _mul:
   pop_word eax
-  mul dword ptr [ebp-4]
+  imul dword ptr [ebp-4]
   mov [ebp-4], eax
   ret
 
@@ -153,7 +153,7 @@ _div:
   pop_word ebx
   pop_word eax
   xor edx, edx
-  div ebx
+  idiv ebx
   push_word eax
   ret
 

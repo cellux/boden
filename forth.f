@@ -25,6 +25,11 @@
 'x' 120 = assert
 '!' $21 = assert
 
+\ arithmetic on negative numbers
+-5 8 + 7 - -4 = assert
+2 -3 * -6 = assert
+8 -4 / 5 + 3 = assert
+
 s" Hello, world!"
 ( "<chars><dquote>" -- addr len )
 13 = assert
