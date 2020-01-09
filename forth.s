@@ -61,6 +61,15 @@ skip_until_whitespace:
 0:
   ret
 
+begin_dict_entry "aligned"
+  pop_word eax
+  add eax, 3
+  mov ebx, 3
+  not ebx
+  and eax, ebx
+  push_word eax
+  ret
+
 begin_dict_entry "parse"
 _parse:
   pop_word eax      # al = end delimiter

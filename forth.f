@@ -49,10 +49,19 @@ dup 3 + c@ $6c = assert  \ l
 dup 12 + c@ $21 = assert \ !
 drop
 
+\ colon
 : square dup * ;
 5 square 25 = assert
 6 square 36 = assert
 7 square 49 = assert
+
+\ aligned
+0 aligned 0 = assert
+1 aligned 4 = assert
+2 aligned 4 = assert
+3 aligned 4 = assert
+4 aligned 4 = assert
+5 aligned 8 = assert
 
 s" All tests successful!" println
 
