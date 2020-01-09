@@ -15,6 +15,15 @@
 1234 $4d2 = assert
 1234 %10011010010 = assert
 
+\ BASE
+base @ #10 = assert \ initial value is 10
+#16 base ! base @ #16 = assert
+30 #48 = assert
+#10 base !
+
+\ hex
+hex 10 #16 = assert dec
+
 \ negative numbers
 -5 3 + -2 = assert
 -1234 #-1234 = assert

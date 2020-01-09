@@ -253,7 +253,7 @@ _allot:
 
 begin_dict_entry "base"
 _base:
-  mov eax, [base]
+  lea eax, [base]
   push_word eax
   ret
 
@@ -363,12 +363,14 @@ _immediate:
   ret
 
 begin_dict_entry "@"
+_at:
   mov ebx, [ebp-4]
   mov eax, [ebx]
   mov [ebp-4], eax
   ret
 
 begin_dict_entry "!"
+_bang:
   pop_word ebx
   pop_word eax
   mov [ebx], eax
