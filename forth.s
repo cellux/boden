@@ -62,12 +62,22 @@ skip_until_whitespace:
   ret
 
 begin_dict_entry "aligned"
-  pop_word eax
-  add eax, 3
-  mov ebx, 3
-  not ebx
-  and eax, ebx
+_aligned:
+  mov eax, [ebp-4]
+  test eax, 3
+  jz 1f
+  and eax, -4
+  add eax, 4
+1:
+  mov [ebp-4], eax
+  ret
+
+begin_dict_entry "align"
+  mov eax, [here]
   push_word eax
+  call _aligned
+  pop_word eax
+  mov [here], eax
   ret
 
 begin_dict_entry "parse"
@@ -138,6 +148,90 @@ _println:
   sys_write 1, msg_lf, 1
   ret
 
+begin_dict_entry "abs"
+  mov eax, [ebp-4]
+  or eax, eax
+  jns 1f
+  neg eax
+1:
+  mov [ebp-4], eax
+  ret
+
+begin_dict_entry "mod"
+  pop_word ebx
+  pop_word eax
+  xor edx, edx
+  idiv ebx
+  push_word edx
+  ret
+
+begin_dict_entry "="
+_eq:
+  pop_word eax
+  pop_word ebx
+  mov edx, -1       # true (equal)
+  cmp eax, ebx
+  je 1f
+  mov edx, 0        # false (not equal)
+1:
+  push_word edx
+  ret
+
+begin_dict_entry "0="
+  xor eax, eax
+  push_word eax
+  jmp _eq
+
+begin_dict_entry "<"
+  pop_word ebx
+  pop_word eax
+  mov edx, -1
+  cmp eax, ebx
+  jb 1f
+  mov edx, 0
+1:
+  push_word edx
+  ret
+
+begin_dict_entry "<="
+  pop_word ebx
+  pop_word eax
+  mov edx, -1
+  cmp eax, ebx
+  jbe 1f
+  mov edx, 0
+1:
+  push_word edx
+  ret
+
+begin_dict_entry ">"
+  pop_word ebx
+  pop_word eax
+  mov edx, -1
+  cmp eax, ebx
+  ja 1f
+  mov edx, 0
+1:
+  push_word edx
+  ret
+
+begin_dict_entry ">="
+  pop_word ebx
+  pop_word eax
+  mov edx, -1
+  cmp eax, ebx
+  jae 1f
+  mov edx, 0
+1:
+  push_word edx
+  ret
+
+begin_dict_entry "invert"
+  mov eax, [ebp-4]
+  xor eax, -1
+  mov [ebp-4], eax
+  ret
+
 begin_dict_entry "+"
 _add:
   pop_word eax
@@ -164,18 +258,6 @@ _div:
   xor edx, edx
   idiv ebx
   push_word eax
-  ret
-
-begin_dict_entry "="
-_eq:
-  pop_word eax
-  pop_word ebx
-  mov edx, -1       # true (equal)
-  cmp eax, ebx
-  je 1f
-  mov edx, 0        # false (not equal)
-1:
-  push_word edx
   ret
 
 begin_dict_entry "assert"

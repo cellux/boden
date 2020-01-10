@@ -39,6 +39,24 @@ hex 10 #16 = assert dec
 2 -3 * -6 = assert
 8 -4 / 5 + 3 = assert
 
+7 abs 7 = assert
+-7 abs 7 = assert
+
+7 3 mod 1 = assert
+15 6 mod 3 = assert
+
+0 invert -1 = assert
+-1 invert 0 = assert
+2 invert -3 = assert
+-3 invert 2 = assert
+
+0 3 < assert
+3 0 > assert
+2 2 <= assert
+2 2 < 0= assert
+2 2 >= assert
+2 2 > 0= assert
+
 s" Hello, world!"
 ( "<chars><dquote>" -- addr len )
 13 = assert
@@ -62,6 +80,11 @@ drop
 3 aligned 4 = assert
 4 aligned 4 = assert
 5 aligned 8 = assert
+
+5 here 4 mod - allot
+here 4 mod 1 = assert
+align
+here 4 mod 0= assert
 
 s" All tests successful!" println
 
