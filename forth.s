@@ -165,6 +165,20 @@ begin_dict_entry "mod"
   push_word edx
   ret
 
+begin_dict_entry "and"
+  pop_word ebx
+  pop_word eax
+  and eax, ebx
+  push_word eax
+  ret
+
+begin_dict_entry "or"
+  pop_word ebx
+  pop_word eax
+  or eax, ebx
+  push_word eax
+  ret
+
 begin_dict_entry "="
 _eq:
   pop_word eax
@@ -363,7 +377,7 @@ _create:
   stosb           # namelen
   mov [last_xt], edi
 
-  # compile the following:
+  # now compile the following:
   #
   #   mov eax, data       B8 .. .. .. ..
   #   mov [ebp], eax      89 45 00
@@ -374,15 +388,23 @@ _create:
 
   mov al, 0xb8
   stosb
-  lea eax, [edi+4+3+3+1]
-  stosd
+  push edi
+  add edi, 4              # leave space for data pointer
   mov eax, 0x83004589
   stosd
   mov ax, 0x04c5
   stosw
   mov al, 0xc3
   stosb
-  mov [here], edi
+  mov eax, edi
+  test eax, 3             # align to cell boundary
+  jz 1f
+  and eax, -4
+  add eax, 4
+1:
+  pop edi
+  stosd                   # patch into data pointer
+  mov [here], eax
   mov esi, edx
   ret
 
@@ -423,6 +445,11 @@ word_not_found:
   xor eax, eax
   push_word eax     # false
   ret
+
+begin_dict_entry "execute"
+_execute:
+  pop_word edi
+  jmp edi
 
 begin_dict_entry ":"
 _colon:

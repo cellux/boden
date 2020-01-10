@@ -45,6 +45,14 @@ hex 10 #16 = assert dec
 7 3 mod 1 = assert
 15 6 mod 3 = assert
 
+0 0 and 0 = assert
+$17 $0f and 7 = assert
+$face $ff00 and $fa00 = assert
+
+0 0 or 0 = assert
+$17 $0f or $1f = assert
+$fa00 $ce or $face = assert
+
 0 invert -1 = assert
 -1 invert 0 = assert
 2 invert -3 = assert
@@ -85,6 +93,9 @@ drop
 here 4 mod 1 = assert
 align
 here 4 mod 0= assert
+
+5 ' dup execute * 25 = assert
+9 ' dup execute * 81 = assert
 
 s" All tests successful!" println
 
