@@ -489,6 +489,7 @@ _semicolon:
   mov edi, [here]
   mov al, 0xc3          # RET
   stosb
+  align edi
   mov [here], edi
   mov eax, 0            # set interpretation state
   mov [state], eax
