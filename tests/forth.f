@@ -133,4 +133,33 @@ parse-name
 : test-exit 5 exit drop 3 ;
 test-exit 5 = assert
 
+\ char+
+0 char+ 1 = assert
+
+\ variable
+variable test-var
+$face test-var !
+test-var @ $face = assert
+
+\ c!
+$face1234 test-var !
+'A' test-var c!
+test-var @ $face1241 = assert
+
+\ cell+
+5 cell+ 9 = assert
+
+\ cells
+5 3 cells + 17 = assert
+
+\ char
+char abc $61 = assert
+
+\ chars
+5 chars 5 = assert
+
+\ constant
+10 constant ten
+ten 10 = assert
+
 s" All tests successful. Ready to rock." println

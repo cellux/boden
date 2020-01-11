@@ -82,12 +82,6 @@ skip_until_whitespace:
 0:
   ret
 
-begin_dict_entry "bl"
-_bl:
-  mov eax, 0x20
-  push_word eax
-  ret
-
 begin_dict_entry "aligned"
 _aligned:
   mov eax, [ebp-4]
@@ -123,28 +117,6 @@ _parse:
   mov esi, edi      # esi = address of next byte in parse buffer
   ret
 
-begin_dict_entry "\\"
-_comment_backslash:
-  mov eax, 0x0a     # line feed
-  push_word eax
-  call _parse
-  sub ebp, 8        # drop addr/len
-  ret
-
-begin_dict_entry "("
-_comment_paren:
-  mov eax, 0x29     # ')'
-  push_word eax
-  call _parse
-  sub ebp, 8        # drop addr/len
-  ret
-
-begin_dict_entry "s\x22"
-_squote:
-  mov eax, 0x22
-  push_word eax
-  jmp _parse
-
 begin_dict_entry "parse-name"
 _parse_name:
   call skip_while_whitespace
@@ -154,14 +126,6 @@ _parse_name:
   mov eax, esi
   sub eax, ebx
   push_word eax     # len
-  ret
-
-begin_dict_entry "exit" immediate
-_exit:
-  mov edi, [here]
-  mov al, 0xc3      # RET
-  stosb
-  mov [here], edi
   ret
 
 begin_dict_entry "sys:exit"
@@ -223,12 +187,6 @@ _eq:
 1:
   push_word edx
   ret
-
-begin_dict_entry "0="
-_eq_zero:
-  xor eax, eax
-  push_word eax
-  jmp _eq
 
 begin_dict_entry "<"
 _lt:
@@ -342,18 +300,6 @@ _dot:
   loop 1b
   jmp _cr
 
-begin_dict_entry "dec"
-_dec:
-  mov eax, 10
-  mov [base], eax
-  ret
-
-begin_dict_entry "hex"
-_hex:
-  mov eax, 16
-  mov [base], eax
-  ret
-
 begin_dict_entry "swap"
 _swap:
   mov eax, [ebp-4]
@@ -393,6 +339,12 @@ _char_at:
   push_word eax
   ret
 
+begin_dict_entry "c!"
+  pop_word edi
+  pop_word eax
+  stosb
+  ret
+
 begin_dict_entry "here"
 _here:
   mov eax, [here]
@@ -403,6 +355,22 @@ begin_dict_entry "allot"
 _allot:
   pop_word eax
   add [here], eax
+  ret
+
+begin_dict_entry ","
+_comma:
+  mov edi, [here]
+  pop_word eax
+  stosd
+  mov [here], edi
+  ret
+
+begin_dict_entry "c,"
+_c_comma:
+  mov edi, [here]
+  pop_word eax
+  stosb
+  mov [here], edi
   ret
 
 begin_dict_entry "base"
@@ -544,18 +512,29 @@ _literal:
   mov [here], edi
   ret
 
-begin_dict_entry "[" immediate
-_open_bracket:
-  # set interpretation state
-  mov eax, 0
-  mov [state], eax
+begin_dict_entry "compile,"
+_compile_comma:
+  mov edi, [here]   # next free location in dictionary
+  mov al, 0xe8      # compile CALL instruction
+  stosb
+  push edi
+  add edi, 4        # address of location after CALL instruction
+  pop_word eax      # xt (word address)
+  sub eax, edi      # convert to relative
+  pop edi
+  stosd
+  mov [here], edi
   ret
 
-begin_dict_entry "]" immediate
-_close_bracket:
-  # set compilation state
-  mov eax, -1
-  mov [state], eax
+begin_dict_entry "constant"
+  call _create
+  mov edi, [last_xt]
+  mov [here], edi       # overwrite code compiled by create
+  jmp _literal
+
+begin_dict_entry "state"
+  lea eax, [state]
+  push_word eax
   ret
 
 begin_dict_entry "@"
@@ -599,24 +578,12 @@ parse_word:
   or eax, eax       # are we in interpretation state?
   jz execute_word
 
-compile_word:
   test cl, 0x20     # is word immediate?
   jnz execute_word  # yes: execute it
 
-  # compile a call to the word
-
-  mov ebx, edi      # xt
-  mov edi, [here]   # next free location in dictionary
-  mov al, 0xe8      # compile CALL instruction
-  stosb
-  # convert word address to IP-relative
-  push edi
-  add edi, 4        # address of location following the CALL instruction
-  mov eax, ebx      # absolute address
-  sub eax, edi      # relative address
-  pop edi
-  stosd
-  mov [here], edi
+compile_word:
+  push_word edi
+  call _compile_comma
   jmp parse_word
 
 execute_word:
