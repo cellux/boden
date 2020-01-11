@@ -64,14 +64,28 @@ $fa00 $ce or $face = assert
 2 invert -3 = assert
 -3 invert 2 = assert
 
-\ < <= = 0= >= >
+\ < <= <> = >= >
+-3 0 < assert
+0 -3 < invert assert
 0 3 < assert
-3 0 > assert
+3 0 < invert assert
 2 2 <= assert
+-1 2 <= assert
+1 2 <> assert
 2 2 = assert
-2 2 < 0= assert
 2 2 >= assert
-2 2 > 0= assert
+2 -1 >= assert
+-1 2 >= invert assert
+2 -1 > assert
+-1 2 > invert assert
+3 0 > assert
+0 3 > invert assert
+
+\ 0< 0<> 0= 0>
+-1 0< assert
+1 0<> assert
+0 0= assert
+1 0> assert
 
 \ s"
 s" Hello, world!"

@@ -188,13 +188,25 @@ _eq:
   push_word edx
   ret
 
+begin_dict_entry "<>"
+_ne:
+  pop_word ebx
+  pop_word eax
+  mov edx, -1       # true (equal)
+  cmp eax, ebx
+  jne 1f
+  inc edx           # false (not equal)
+1:
+  push_word edx
+  ret
+
 begin_dict_entry "<"
 _lt:
   pop_word ebx
   pop_word eax
   mov edx, -1
   cmp eax, ebx
-  jb 1f
+  jl 1f
   inc edx
 1:
   push_word edx
@@ -206,7 +218,7 @@ _le:
   pop_word eax
   mov edx, -1
   cmp eax, ebx
-  jbe 1f
+  jle 1f
   inc edx
 1:
   push_word edx
@@ -218,7 +230,7 @@ _ge:
   pop_word eax
   mov edx, -1
   cmp eax, ebx
-  ja 1f
+  jg 1f
   inc edx
 1:
   push_word edx
@@ -230,7 +242,7 @@ _gt:
   pop_word eax
   mov edx, -1
   cmp eax, ebx
-  jae 1f
+  jge 1f
   inc edx
 1:
   push_word edx
