@@ -97,6 +97,12 @@ here 4 mod 0= assert
 5 ' dup execute * 25 = assert
 9 ' dup execute * 81 = assert
 
+5 7 swap 5 = assert 7 = assert
+
+: test-literal [ 752 ] literal 3 + 'A' - ;
+test-literal 690 = assert
+test-literal 690 = assert
+
 s" All tests successful!" println
 
-0 exit
+0 sys:exit
