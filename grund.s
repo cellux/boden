@@ -82,6 +82,12 @@ skip_until_whitespace:
 0:
   ret
 
+begin_dict_entry "bl"
+_bl:
+  mov eax, 0x20
+  push_word eax
+  ret
+
 begin_dict_entry "aligned"
 _aligned:
   mov eax, [ebp-4]
@@ -150,7 +156,7 @@ _parse_name:
   push_word eax     # len
   ret
 
-begin_dict_entry "exit"
+begin_dict_entry "exit" immediate
 _exit:
   mov edi, [here]
   mov al, 0xc3      # RET
@@ -373,6 +379,11 @@ _2dup:
 begin_dict_entry "drop"
 _drop:
   sub ebp, 4
+  ret
+
+begin_dict_entry "2drop"
+_2drop:
+  sub ebp, 8
   ret
 
 begin_dict_entry "c@"
@@ -754,8 +765,8 @@ digit_chars:
   .ascii "0123456789abcdefghijklmnopqrstuvwxyz"
 
 parse_buffer:
-  .incbin "forth.f"
-  .byte 0x20        # sentinel
+  .incbin "grund.f"
+  .byte 0x0a        # sentinel
 
 .bss
 
@@ -771,6 +782,6 @@ return_stack:
   .space 4096
 return_stack_end:
 
-# forth.f definitions will be compiled from here
+# definitions in grund.f will be compiled from here
 dictionary:
   .space 1048576

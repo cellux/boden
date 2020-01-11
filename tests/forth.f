@@ -1,70 +1,79 @@
+\ numbers
 8 5 + 13 = assert
 8 5 - 3 = assert
 2 3 * 6 = assert
 100 4 / 25 = assert
 
-\ numbers do not have to be followed by whitespace
-2 5- 8+ 5= assert
-
-\ base may be temporarily overridden via the following number prefixes:
-\
 \ # (base 10)
-\ $ (base 16)
-\ % (base 2)
 1234 #1234 = assert
+\ $ (base 16)
 1234 $4d2 = assert
+\ % (base 2)
 1234 %10011010010 = assert
 
-\ BASE
+\ base
 base @ #10 = assert \ initial value is 10
 #16 base ! base @ #16 = assert
 30 #48 = assert
-#10 base !
+#10 base ! \ restore initial value
 
 \ hex
-hex 10 #16 = assert dec
+hex
+10 #16 = assert
+base @ #16 = assert
+
+\ dec
+dec
+10 #10 = assert
+base @ #10 = assert
 
 \ negative numbers
 -5 3 + -2 = assert
 -1234 #-1234 = assert
 -1234 $-4d2 = assert
 -1234 %-10011010010 = assert
+-5 8 + 7 - -4 = assert
+2 -3 * -6 = assert
+8 -4 / 5 + 3 = assert
 
 \ character literals
 'x' 120 = assert
 '!' $21 = assert
 
-\ arithmetic on negative numbers
--5 8 + 7 - -4 = assert
-2 -3 * -6 = assert
-8 -4 / 5 + 3 = assert
-
+\ abs
 7 abs 7 = assert
 -7 abs 7 = assert
 
+\ mod
 7 3 mod 1 = assert
 15 6 mod 3 = assert
 
+\ and
 0 0 and 0 = assert
 $17 $0f and 7 = assert
 $face $ff00 and $fa00 = assert
 
+\ or
 0 0 or 0 = assert
 $17 $0f or $1f = assert
 $fa00 $ce or $face = assert
 
+\ invert
 0 invert -1 = assert
 -1 invert 0 = assert
 2 invert -3 = assert
 -3 invert 2 = assert
 
+\ < <= = 0= >= >
 0 3 < assert
 3 0 > assert
 2 2 <= assert
+2 2 = assert
 2 2 < 0= assert
 2 2 >= assert
 2 2 > 0= assert
 
+\ s"
 s" Hello, world!"
 ( "<chars><dquote>" -- addr len )
 13 = assert
@@ -89,20 +98,39 @@ drop
 4 aligned 4 = assert
 5 aligned 8 = assert
 
+\ align
 5 here 4 mod - allot
 here 4 mod 1 = assert
 align
 here 4 mod 0= assert
 
+\ tick execute
 5 ' dup execute * 25 = assert
 9 ' dup execute * 81 = assert
 
+\ swap
 5 7 swap 5 = assert 7 = assert
 
+\ literal [ ]
 : test-literal [ 752 ] literal 3 + 'A' - ;
 test-literal 690 = assert
 test-literal 690 = assert
 
-s" All tests successful!" println
+\ parse bl
+: skip-until parse 2drop ;
+'#' skip-until these will be skipped #
+bl parse moo ( -- addr len )
+3 = assert
+@ $206f6f6d = assert
 
-0 sys:exit
+\ parse-name
+parse-name
+   this-is-it
+10 = assert
+@ $73696874 = assert
+
+\ exit
+: test-exit 5 exit drop 3 ;
+test-exit 5 = assert
+
+s" All tests successful. Ready to rock." println

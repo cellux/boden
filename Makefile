@@ -1,8 +1,20 @@
-forth: forth.o
-	ld -o forth forth.o
+name := grund
+modules := $(wildcard modules/*.f)
 
-forth.o: forth.s forth.f
-	as -g -almnc=forth.lst -o forth.o forth.s
+ifeq ($(MAKECMDGOALS),test)
+name := tgrund
+modules += $(wildcard tests/*.f)
+endif
 
-test: forth
-	@./forth
+$(name): $(name).o
+	ld -o $@ $^
+
+$(name).all: $(modules) main.f
+	cat $^ > $@
+
+$(name).o: grund.s $(name).all
+	cp $(name).all grund.f
+	as -g -almnc=grund.lst -o $@ $<
+
+test: tgrund
+	@./tgrund
