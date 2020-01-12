@@ -378,6 +378,21 @@ _pick:
   push_word eax
   ret
 
+begin_dict_entry "roll"
+  push esi
+  pop_word ebx
+  mov ecx, ebx
+  shl ebx, 2
+  mov edi, ebp
+  sub edi, ebx
+  mov esi, edi
+  sub edi, 4
+  mov eax, [edi]
+  rep movsd
+  stosd
+  pop esi
+  ret
+
 begin_dict_entry "2dup"
 _2dup:
   mov eax, [ebp-8]

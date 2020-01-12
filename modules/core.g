@@ -18,6 +18,7 @@
 : 0> 0 > ;
 : 0<> 0 = invert ;
 : negate invert 1+ ;
+: rot 2 roll ;
 : max 2dup > if drop else nip then ;
 : min 2dup < if drop else nip then ;
 : decimal #10 base ! ;

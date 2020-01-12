@@ -139,6 +139,23 @@ depth 3 = assert
 depth 3 = assert
 2drop drop
 
+\ roll
+1 2 3
+0 roll
+3 = assert 2 = assert 1 = assert
+
+1 2 3
+1 roll
+2 = assert 3 = assert 1 = assert
+
+1 2 3
+2 roll
+1 = assert 3 = assert 2 = assert
+
+\ rot
+1 2 3 rot
+1 = assert 3 = assert 2 = assert
+
 \ max min
 5 3 max 5 = assert
 5 3 min 3 = assert
