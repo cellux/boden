@@ -44,6 +44,13 @@ base @ #10 = assert
 'x' 120 = assert
 '!' $21 = assert
 
+\ negate
+0 negate 0 = assert
+1 negate -1 = assert
+-1 negate 1 = assert
+2 negate -2 = assert
+-2 negate 2 = assert
+
 \ abs
 7 abs 7 = assert
 -7 abs 7 = assert
