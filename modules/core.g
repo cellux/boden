@@ -6,6 +6,7 @@
 : postpone ' compile, ; immediate
 : s" '"' parse swap postpone literal postpone literal ; immediate
 : bl $20 ;
+: space bl emit ;
 : cell+ 4 + ;
 : cells 4 * ;
 : char+ 1+ ;
@@ -19,6 +20,7 @@
 : 0<> 0 = invert ;
 : negate invert 1+ ;
 : rot 2 roll ;
+: tuck swap over ;
 : max 2dup > if drop else nip then ;
 : min 2dup < if drop else nip then ;
 : decimal #10 base ! ;

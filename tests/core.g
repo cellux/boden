@@ -156,6 +156,9 @@ depth 3 = assert
 1 2 3 rot
 1 = assert 3 = assert 2 = assert
 
+\ tuck
+1 2 tuck 2 = assert 1 = assert 2 = assert
+
 \ max min
 5 3 max 5 = assert
 5 3 min 3 = assert
