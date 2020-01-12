@@ -66,6 +66,19 @@ $fa00 $ce or $face = assert
 0 -1 xor -1 = assert
 1234 4321 xor 5171 = assert
 
+\ lshift
+1 1 lshift 2 = assert
+1 2 lshift 4 = assert
+1 3 lshift 8 = assert
+-128 8 lshift $ffff8000 = assert
+
+\ rshift
+1 1 rshift 0 = assert
+2 1 rshift 1 = assert
+4 2 rshift 1 = assert
+8 3 rshift 1 = assert
+$ffff8000 8 rshift $00ffff80 = assert
+
 \ invert
 0 invert -1 = assert
 -1 invert 0 = assert

@@ -196,6 +196,20 @@ begin_dict_entry "xor"
   push_word eax
   ret
 
+begin_dict_entry "lshift"
+  pop_word ecx
+  pop_word eax
+  shl eax, cl
+  push_word eax
+  ret
+
+begin_dict_entry "rshift"
+  pop_word ecx
+  pop_word eax
+  shr eax, cl
+  push_word eax
+  ret
+
 begin_dict_entry "="
 _eq:
   pop_word ebx
