@@ -88,7 +88,7 @@ $fa00 $ce or $face = assert
 1 0> assert
 
 \ s"
-: test-squote
+:noname
 s" Hello, world!"
 ( C: "<chars><dquote>" -- ; R: addr len )
 13 = assert
@@ -98,7 +98,7 @@ dup 2 + c@ $6c = assert  \ l
 dup 3 + c@ $6c = assert  \ l
 dup 12 + c@ $21 = assert \ !
 drop
-; test-squote
+; execute
 
 \ colon
 : square dup * ;
@@ -146,8 +146,8 @@ parse-name
 @ $73696874 = assert
 
 \ exit
-: test-exit 5 exit drop 3 ;
-test-exit 5 = assert
+:noname 5 exit drop 3 ;
+execute 5 = assert
 
 \ char+
 0 char+ 1 = assert
@@ -179,11 +179,11 @@ char abc $61 = assert
 ten 10 = assert
 
 \ if..else..then
-: test-if
+:noname
 5 3 > if 1 else 2 then 1 = assert
 5 3 < if 1 else 2 then 2 = assert
-; test-if
+; execute
 
-: bye
+:noname
 s" All tests successful. Ready to rock." println
-; bye
+; execute

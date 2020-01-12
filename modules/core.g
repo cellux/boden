@@ -20,3 +20,4 @@
 : 1- 1 - ;
 : [ 0 state ! ; immediate
 : ] -1 state ! ; immediate
+: :noname here postpone ] ; immediate
