@@ -220,6 +220,11 @@ $face1234 test-var !
 'A' test-var c!
 test-var @ $face1241 = assert
 
+\ +!
+1234 test-var !
+500 test-var +!
+test-var @ 1734 = assert
+
 \ cell+
 5 cell+ 9 = assert
 

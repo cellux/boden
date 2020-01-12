@@ -24,6 +24,7 @@
 : hex #16 base ! ;
 : 1+ 1 + ;
 : 1- 1 - ;
+: +! swap over @ + swap ! ;
 : [ 0 state ! ; immediate
 : ] -1 state ! ; immediate
 : :noname here postpone ] ; immediate
