@@ -82,6 +82,11 @@ skip_until_whitespace:
 0:
   ret
 
+begin_dict_entry "debug-trap"
+_debug_trap:
+  int 3
+  ret
+
 begin_dict_entry "aligned"
 _aligned:
   mov eax, [ebp-4]
