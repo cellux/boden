@@ -288,16 +288,6 @@ _div:
   push_word eax
   ret
 
-begin_dict_entry "assert"
-_assert:
-  pop_word eax
-  or eax, eax
-  jnz 1f
-  # TODO: print line number and source code from parse buffer
-  die msg_assertion_failed
-1:
-  ret
-
 begin_dict_entry "."
 _dot:
   pop_word eax
