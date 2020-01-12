@@ -14,7 +14,7 @@
 : 0< 0 < ;
 : 0> 0 > ;
 : 0<> 0 = invert ;
-: dec #10 base ! ;
+: decimal #10 base ! ;
 : hex #16 base ! ;
 : 1+ 1 + ;
 : 1- 1 - ;

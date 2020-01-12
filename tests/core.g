@@ -22,8 +22,8 @@ hex
 10 #16 = assert
 base @ #16 = assert
 
-\ dec
-dec
+\ decimal
+decimal
 10 #10 = assert
 base @ #10 = assert
 
