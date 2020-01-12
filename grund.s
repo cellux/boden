@@ -181,6 +181,13 @@ begin_dict_entry "or"
   push_word eax
   ret
 
+begin_dict_entry "xor"
+  pop_word ebx
+  pop_word eax
+  xor eax, ebx
+  push_word eax
+  ret
+
 begin_dict_entry "="
 _eq:
   pop_word ebx

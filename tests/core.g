@@ -62,6 +62,10 @@ $face $ff00 and $fa00 = assert
 $17 $0f or $1f = assert
 $fa00 $ce or $face = assert
 
+\ xor
+0 -1 xor -1 = assert
+1234 4321 xor 5171 = assert
+
 \ invert
 0 invert -1 = assert
 -1 invert 0 = assert
