@@ -43,13 +43,6 @@ $last_xt = 0
   mov \dst, [ebp]
 .endm
 
-.macro print_char ch
-  mov eax, \ch
-  push_word eax
-  sys_write 1, [ebp-4], 1
-  sub ebp, 4
-.endm
-
 .macro die msg_addr
   sys_write 1, \msg_addr, \msg_addr\()_len
   call _cr
@@ -146,10 +139,17 @@ _sys_exit:
   pop_word eax
   sys_exit eax
 
+begin_dict_entry "emit"
+_emit:
+  sys_write 1, ebp-4, 1
+  sub ebp, 4
+  ret
+
 begin_dict_entry "cr"
 _cr:
-  print_char 0x0a
-  ret
+  mov eax, 0x0a
+  push_word eax
+  jmp _emit
 
 begin_dict_entry "println"
 _println:
@@ -778,9 +778,11 @@ positive_number:
 
 not_a_number:
   call skip_until_whitespace
-  sub esi, edx                      # esi = length of unknown word
-  sys_write 1, edx, esi
-  print_char 0x3f                   # ?
+  sub esi, edx
+  sys_write 1, edx, esi             # print unknown word
+  mov eax, 0x3f
+  push_word eax
+  call _emit                        # print '?'
   call _cr
   sys_exit 1
 
