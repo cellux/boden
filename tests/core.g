@@ -88,8 +88,9 @@ $fa00 $ce or $face = assert
 1 0> assert
 
 \ s"
+: test-squote
 s" Hello, world!"
-( "<chars><dquote>" -- addr len )
+( C: "<chars><dquote>" -- ; R: addr len )
 13 = assert
 dup 0 + c@ $48 = assert  \ H
 dup 1 + c@ $65 = assert  \ e
@@ -97,6 +98,7 @@ dup 2 + c@ $6c = assert  \ l
 dup 3 + c@ $6c = assert  \ l
 dup 12 + c@ $21 = assert \ !
 drop
+; test-squote
 
 \ colon
 : square dup * ;
@@ -176,4 +178,6 @@ char abc $61 = assert
 10 constant ten
 ten 10 = assert
 
+: bye
 s" All tests successful. Ready to rock." println
+; bye

@@ -1,6 +1,7 @@
-: s" '"' parse ;
 : \ $0a parse 2drop ; immediate
 : ( ')' parse 2drop ; immediate
+: postpone ' compile, ; immediate
+: s" '"' parse swap postpone literal postpone literal ; immediate
 : bl $20 ;
 : variable create 4 allot ;
 : exit $c3 c, ; immediate
