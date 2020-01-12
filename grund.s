@@ -151,12 +151,12 @@ _cr:
   push_word eax
   jmp _emit
 
-begin_dict_entry "println"
-_println:
+begin_dict_entry "type"
+_type:
   pop_word edi      # len
   pop_word edx      # addr
   sys_write 1, edx, edi
-  jmp _cr
+  ret
 
 begin_dict_entry "abs"
   mov eax, [ebp-4]

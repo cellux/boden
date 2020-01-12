@@ -302,5 +302,5 @@ test-buffer 2 cells + @ $0fedcba9 = assert
 test-buffer 3 cells + @ $87654321 = assert
 
 :noname
-s" All tests successful. Ready to rock." println
+s" All tests successful. Ready to rock." type cr
 ; execute
