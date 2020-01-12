@@ -569,6 +569,56 @@ _bang:
   mov [ebx], eax
   ret
 
+begin_dict_entry "if" immediate
+  # compile the following:
+  #
+  #   sub ebp, 4        83 ED 04
+  #   mov eax, [ebp]    8B 45 00
+  #   or eax, eax       09 C0
+  #   jz false_target   74 ..
+  # next:
+  #
+  # where `false_target` is an offset relative to `next`
+
+  mov edi, [here]
+  mov eax, 0x8b04ed83
+  stosd
+  mov eax, 0xc0090045
+  stosd
+  mov al, 0x74        # JZ opcode
+  stosb
+  xor al, al          # placeholder for jump offset
+  stosb
+  push_word edi       # jump offset will be patched by `else`/`then`
+  mov [here], edi
+  ret
+
+begin_dict_entry "else" immediate
+  mov eax, [here]
+  pop_word edi        # edi -> address of `if` jump offset + 1
+  sub eax, edi        # calculate jump offset
+  add eax, 2          # skip forward jump compiled below
+  dec edi             # patch the second byte of the JZ instruction
+  stosb
+
+  # compile forward jump to `then`
+  mov edi, [here]
+  mov al, 0xeb        # JMP opcode
+  stosb
+  xor al, al          # placeholder for jump offset
+  stosb
+  push_word edi       # jump offset will be patched by `then`
+  mov [here], edi
+  ret
+
+begin_dict_entry "then" immediate
+  mov eax, [here]
+  pop_word edi        # edi -> address of `if`/`else` jump offset + 1
+  sub eax, edi
+  dec edi
+  stosb
+  ret
+
 _start:
   # return stack grows top -> down
   lea esp, [return_stack_end]

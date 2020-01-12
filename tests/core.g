@@ -178,6 +178,12 @@ char abc $61 = assert
 10 constant ten
 ten 10 = assert
 
+\ if..else..then
+: test-if
+5 3 > if 1 else 2 then 1 = assert
+5 3 < if 1 else 2 then 2 = assert
+; test-if
+
 : bye
 s" All tests successful. Ready to rock." println
 ; bye
