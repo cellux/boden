@@ -17,6 +17,8 @@
 : 0< 0 < ;
 : 0> 0 > ;
 : 0<> 0 = invert ;
+: max 2dup > if drop else nip then ;
+: min 2dup < if drop else nip then ;
 : decimal #10 base ! ;
 : hex #16 base ! ;
 : 1+ 1 + ;

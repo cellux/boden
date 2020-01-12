@@ -363,6 +363,13 @@ _drop:
   sub ebp, 4
   ret
 
+begin_dict_entry "nip"
+_nip:
+  sub ebp, 4
+  mov eax, [ebp]
+  mov [ebp-4], eax
+  ret
+
 begin_dict_entry "2drop"
 _2drop:
   sub ebp, 8

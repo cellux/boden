@@ -108,6 +108,18 @@ $ffff8000 8 rshift $00ffff80 = assert
 0 0= assert
 1 0> assert
 
+\ nip
+depth 0 = assert
+5 3 depth 2 = assert
+nip 3 = assert
+depth 0 = assert
+
+\ max min
+5 3 max 5 = assert
+5 3 min 3 = assert
+-5 3 max 3 = assert
+-5 3 min -5 = assert
+
 \ s"
 :noname
 s" Hello, world!"
