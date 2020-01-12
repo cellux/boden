@@ -350,14 +350,6 @@ _dup:
   push_word eax
   ret
 
-begin_dict_entry "2dup"
-_2dup:
-  mov eax, [ebp-8]
-  push_word eax
-  mov eax, [ebp-8]
-  push_word eax
-  ret
-
 begin_dict_entry "drop"
 _drop:
   sub ebp, 4
@@ -368,6 +360,30 @@ _nip:
   sub ebp, 4
   mov eax, [ebp]
   mov [ebp-4], eax
+  ret
+
+begin_dict_entry "over"
+_over:
+  mov eax, [ebp-8]
+  push_word eax
+  ret
+
+begin_dict_entry "pick"
+_pick:
+  pop_word ebx
+  shl ebx, 2
+  lea edi, [ebp-4]
+  sub edi, ebx
+  mov eax, [edi]
+  push_word eax
+  ret
+
+begin_dict_entry "2dup"
+_2dup:
+  mov eax, [ebp-8]
+  push_word eax
+  mov eax, [ebp-8]
+  push_word eax
   ret
 
 begin_dict_entry "2drop"

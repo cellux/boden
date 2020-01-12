@@ -44,13 +44,6 @@ base @ #10 = assert
 'x' 120 = assert
 '!' $21 = assert
 
-\ negate
-0 negate 0 = assert
-1 negate -1 = assert
--1 negate 1 = assert
-2 negate -2 = assert
--2 negate 2 = assert
-
 \ abs
 7 abs 7 = assert
 -7 abs 7 = assert
@@ -92,6 +85,13 @@ $ffff8000 8 rshift $00ffff80 = assert
 2 invert -3 = assert
 -3 invert 2 = assert
 
+\ negate
+0 negate 0 = assert
+1 negate -1 = assert
+-1 negate 1 = assert
+2 negate -2 = assert
+-2 negate 2 = assert
+
 \ < <= <> = >= >
 -3 0 < assert
 0 -3 < invert assert
@@ -120,6 +120,24 @@ depth 0 = assert
 5 3 depth 2 = assert
 nip 3 = assert
 depth 0 = assert
+
+\ over
+depth 0 = assert
+1 2 over
+depth 3 = assert
+1 = assert
+2 = assert
+1 = assert
+depth 0 = assert
+
+\ pick
+1 2 3
+depth 3 = assert
+0 pick 3 = assert
+1 pick 2 = assert
+2 pick 1 = assert
+depth 3 = assert
+2drop drop
 
 \ max min
 5 3 max 5 = assert
