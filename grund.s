@@ -745,7 +745,7 @@ digit_chars:
   .ascii "0123456789abcdefghijklmnopqrstuvwxyz"
 
 parse_buffer:
-  .incbin "grund.f"
+  .incbin "grund.g"
   .byte 0x0a        # sentinel
 
 .bss
@@ -762,6 +762,6 @@ return_stack:
   .space 4096
 return_stack_end:
 
-# definitions in grund.f will be compiled from here
+# definitions in grund.g will be compiled from here
 dictionary:
   .space 1048576

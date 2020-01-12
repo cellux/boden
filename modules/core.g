@@ -19,5 +19,3 @@
 : chars ;
 : [ 0 state ! ; immediate
 : ] -1 state ! ; immediate
-
-: die println 1 sys:exit ;
