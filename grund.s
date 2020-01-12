@@ -87,6 +87,14 @@ _debug_trap:
   int 3
   ret
 
+begin_dict_entry "depth"
+  lea ebx, [data_stack]
+  mov eax, ebp
+  sub eax, ebx
+  shr eax, 2
+  push_word eax
+  ret
+
 begin_dict_entry "aligned"
 _aligned:
   mov eax, [ebp-4]

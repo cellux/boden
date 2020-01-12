@@ -198,7 +198,14 @@ ten 10 = assert
 begin
 test-var @ dup . 1+ test-var !
 again
-; \ execute ( if you want to get into an infinite loop )
+; drop \ execute ( if you want to get into an infinite loop )
+
+\ depth
+depth 0 = assert
+1 2 3 depth 3 = assert
+drop depth 2 = assert
+drop depth 1 = assert
+drop depth 0 = assert
 
 :noname
 s" All tests successful. Ready to rock." println
