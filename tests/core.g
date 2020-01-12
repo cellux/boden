@@ -207,6 +207,25 @@ drop depth 2 = assert
 drop depth 1 = assert
 drop depth 0 = assert
 
+create test-buffer 16 allot
+
+\ fill
+test-buffer 16 $aa fill
+test-buffer 3 + 4 $55 fill
+test-buffer @ $55aaaaaa = assert
+test-buffer 1 cells + @ $aa555555 = assert
+
+\ erase
+$12345678 test-buffer !
+$9abcdef0 test-buffer 1 cells + !
+$0fedcba9 test-buffer 2 cells + !
+$87654321 test-buffer 3 cells + !
+test-buffer 3 + 4 erase
+test-buffer @ $00345678 =
+test-buffer 1 cells + @ $9a000000 = assert
+test-buffer 2 cells + @ $0fedcba9 = assert
+test-buffer 3 cells + @ $87654321 = assert
+
 :noname
 s" All tests successful. Ready to rock." println
 ; execute

@@ -2,6 +2,7 @@
 : false 0 ;
 : \ $0a parse 2drop ; immediate
 : ( ')' parse 2drop ; immediate
+: erase 0 fill ;
 : postpone ' compile, ; immediate
 : s" '"' parse swap postpone literal postpone literal ; immediate
 : bl $20 ;

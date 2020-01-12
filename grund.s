@@ -367,6 +367,13 @@ begin_dict_entry "c!"
   stosb
   ret
 
+begin_dict_entry "fill"
+  pop_word eax    # char
+  pop_word ecx    # len
+  pop_word edi    # addr
+  rep stosb
+  ret
+
 begin_dict_entry "here"
 _here:
   mov eax, [here]
