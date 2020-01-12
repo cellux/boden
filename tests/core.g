@@ -178,11 +178,19 @@ char abc $61 = assert
 10 constant ten
 ten 10 = assert
 
-\ if..else..then
+\ if else then
 :noname
 5 3 > if 1 else 2 then 1 = assert
 5 3 < if 1 else 2 then 2 = assert
 ; execute
+
+\ begin again
+:noname
+0 test-var !
+begin
+test-var @ dup . 1+ test-var !
+again
+; \ execute ( if you want to get into an infinite loop )
 
 :noname
 s" All tests successful. Ready to rock." println

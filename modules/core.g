@@ -21,3 +21,11 @@
 : [ 0 state ! ; immediate
 : ] -1 state ! ; immediate
 : :noname here postpone ] ; immediate
+
+: begin here ; immediate
+: again
+here 2 + \ -- begin-addr here+2
+-        \ calculate jump offset
+$eb c,   \ compile JMP opcode
+c,       \ compile jump offset
+; immediate
