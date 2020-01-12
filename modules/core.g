@@ -1,3 +1,5 @@
+: true -1 ;
+: false 0 ;
 : \ $0a parse 2drop ; immediate
 : ( ')' parse 2drop ; immediate
 : postpone ' compile, ; immediate

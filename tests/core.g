@@ -1,3 +1,7 @@
+\ true false
+true -1 = assert
+false 0 = assert
+
 \ numbers
 8 5 + 13 = assert
 8 5 - 3 = assert
