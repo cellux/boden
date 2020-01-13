@@ -261,6 +261,12 @@ char abc $61 = assert
 10 constant ten
 ten 10 = assert
 
+\ if then
+:noname
+2 0= if 2 then
+depth 0= assert
+; execute
+
 \ if else then
 :noname
 5 3 > if 1 else 2 then 1 = assert
