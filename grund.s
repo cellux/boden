@@ -633,53 +633,55 @@ _bang:
   mov [ebx], eax
   ret
 
-begin_dict_entry "if" immediate
+compile_jump:
+  # ( R: opcode -- S: address of branch offset )
+  mov edi, [here]
+  pop eax             # opcode (JMP, JZ, JNZ)
+  stosb
+  push_word edi       # address of branch offset
+  xor al, al          # placeholder for branch offset (i8)
+  stosb
+  mov [here], edi
+  ret
+
+compile_conditional_branch:
+  # ( R: opcode -- S: address of branch offset )
+  #
   # compile the following:
   #
-  #   sub ebp, 4        83 ED 04
-  #   mov eax, [ebp]    8B 45 00
-  #   or eax, eax       09 C0
-  #   jz false_target   74 ..
-  # next:
-  #
-  # where `false_target` is an offset relative to `next`
-
+  #   sub ebp, 4              83 ED 04
+  #   mov eax, [ebp]          8B 45 00
+  #   or eax, eax             09 C0
+  #   <opcode> <offset>       .. ..
   mov edi, [here]
   mov eax, 0x8b04ed83
   stosd
   mov eax, 0xc0090045
   stosd
-  mov al, 0x74        # JZ opcode
-  stosb
-  xor al, al          # placeholder for jump offset
-  stosb
-  push_word edi       # jump offset will be patched by `else`/`then`
   mov [here], edi
-  ret
+  jmp compile_jump
 
-begin_dict_entry "else" immediate
-  mov eax, [here]
-  pop_word edi        # edi -> address of `if` jump offset + 1
-  sub eax, edi        # calculate jump offset
-  add eax, 2          # skip forward jump compiled below
-  dec edi             # patch the second byte of the JZ instruction
-  stosb
+begin_dict_entry ",jmpz"
+  mov eax, 0x74
+  push eax
+  jmp compile_conditional_branch
 
-  # compile forward jump to `then`
-  mov edi, [here]
-  mov al, 0xeb        # JMP opcode
-  stosb
-  xor al, al          # placeholder for jump offset
-  stosb
-  push_word edi       # jump offset will be patched by `then`
-  mov [here], edi
-  ret
+begin_dict_entry ",jmpnz"
+  mov eax, 0x75
+  push eax
+  jmp compile_conditional_branch
 
-begin_dict_entry "then" immediate
-  mov eax, [here]
-  pop_word edi        # edi -> address of `if`/`else` jump offset + 1
+begin_dict_entry ",jmp"
+  mov eax, 0xeb
+  push eax
+  jmp compile_jump
+
+begin_dict_entry "patch-jmp"
+  # ( dest branch-offset-addr -- )
+  pop_word edi
+  pop_word eax
   sub eax, edi
-  dec edi
+  sub eax, 1        # offset counts from start of next instruction
   stosb
   ret
 

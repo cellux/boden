@@ -21,8 +21,6 @@
 : negate invert 1+ ;
 : rot 2 roll ;
 : tuck swap over ;
-: max 2dup > if drop else nip then ;
-: min 2dup < if drop else nip then ;
 : decimal #10 base ! ;
 : hex #16 base ! ;
 : 1+ 1 + ;
@@ -32,10 +30,15 @@
 : ] -1 state ! ; immediate
 : :noname here postpone ] ; immediate
 
+: if ,jmpz ; immediate
+: else here 2 + swap patch-jmp ,jmp ; immediate
+: then here swap patch-jmp ; immediate
+
 : begin here ; immediate
-: again
-here 2 + \ -- begin-addr here+2
--        \ calculate jump offset
-$eb c,   \ compile JMP opcode
-c,       \ compile jump offset
-; immediate
+: again ,jmp patch-jmp ; immediate
+: while ,jmpz ; immediate
+: until ,jmpnz ; immediate
+: repeat postpone else patch-jmp ; immediate
+
+: max 2dup > if drop else nip then ;
+: min 2dup < if drop else nip then ;

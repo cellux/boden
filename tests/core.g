@@ -275,6 +275,16 @@ test-var @ dup . 1+ test-var !
 again
 ; drop \ execute ( if you want to get into an infinite loop )
 
+\ begin while repeat
+:noname
+0 begin dup 505 < while 10+ repeat 510 = assert
+; execute
+
+\ begin until repeat
+:noname
+0 begin dup 505 > until 10+ repeat 510 = assert
+; execute
+
 \ depth
 depth 0 = assert
 1 2 3 depth 3 = assert
