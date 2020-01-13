@@ -306,7 +306,7 @@ $9abcdef0 test-buffer 1 cells + !
 $0fedcba9 test-buffer 2 cells + !
 $87654321 test-buffer 3 cells + !
 test-buffer 3 + 4 erase
-test-buffer @ $00345678 =
+test-buffer @ $00345678 = assert
 test-buffer 1 cells + @ $9a000000 = assert
 test-buffer 2 cells + @ $0fedcba9 = assert
 test-buffer 3 cells + @ $87654321 = assert
