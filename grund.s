@@ -138,7 +138,7 @@ _parse:
   sub eax, esi      # eax = length of string
   push_word esi     # addr
   push_word eax     # len
-  mov esi, edi      # esi = address of next byte in parse buffer
+  mov esi, edi      # esi = address of next byte in parse area
   ret
 
 begin_dict_entry "parse-name"
@@ -481,15 +481,15 @@ _base:
 begin_dict_entry "create"
 _create:
   call _parse_name        # ( -- addr len )
-  mov edx, esi            # save parse buffer pointer
+  mov edx, esi            # save parse area pointer
   mov edi, [here]
   mov eax, [last_xt]
   stosd                   # link
   pop_word ecx            # ecx = len
   pop_word esi            # esi = addr
-  push ecx                
+  push ecx
   rep movsb               # name
-  pop eax                 
+  pop eax
   stosb                   # namelen
   mov [last_xt], edi
 
@@ -517,7 +517,7 @@ _create:
   pop edi
   stosd                   # patch aligned address into data pointer
   mov [here], eax
-  mov esi, edx            # restore parse buffer pointer
+  mov esi, edx            # restore parse area pointer
   ret
 
 begin_dict_entry "'"
@@ -552,7 +552,7 @@ word_found:
   ret
 
 word_not_found:
-  mov esi, edx      # restore parse buffer ptr to first char of word
+  mov esi, edx      # restore parse area ptr to first char of word
   xor eax, eax
   push_word eax     # false
   ret
@@ -730,8 +730,8 @@ _start:
   # data stack grows bottom -> up
   lea ebp, [data_stack]
 
-  # esi: parse buffer pointer
-  lea esi, [parse_buffer]
+  # esi: parse area pointer
+  lea esi, [parse_area]
 
   lea eax, [dictionary]
   mov [here], eax
@@ -802,7 +802,7 @@ unknown_word:
   jmp parse_number
 
 char_literal:
-  # parse buffer should match 'X'<blank>
+  # parse area should match 'X'<blank>
   mov bl, [esi+2]
   cmp bl, 0x27                  # single quote?
   jne not_a_number
@@ -905,7 +905,7 @@ state:
 digit_chars:
   .ascii "0123456789abcdefghijklmnopqrstuvwxyz"
 
-parse_buffer:
+parse_area:
   .incbin "grund.g"
   .byte 0x0a        # sentinel
 
