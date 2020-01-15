@@ -725,7 +725,7 @@ begin_dict_entry "patch-jmp"
 
 _start:
   # return stack grows top -> down
-  lea esp, [return_stack_end]
+  lea esp, [return_stack]
 
   # data stack grows bottom -> up
   lea ebp, [data_stack]
@@ -913,15 +913,18 @@ parse_buffer:
 
 here:
   .dc.a 0
+
 last_xt:
   .dc.a 0
 
+# data and return stack use the same memory region
+#
+# data stack grows upwards
+# return stack grows downwards
+
 data_stack:
   .space 4096
-
 return_stack:
-  .space 4096
-return_stack_end:
 
 # definitions in grund.g will be compiled from here
 dictionary:
