@@ -261,6 +261,19 @@ char abc $61 = assert
 10 constant ten
 ten 10 = assert
 
+\ >r r> r@
+:noname
+10 >r
+3 5 >r
+dup 3 = assert
+r@ 5 = assert
+dup 3 = assert
+r@ 5 = assert
+r> 5 = assert
+3 = assert
+r> 10 = assert
+; execute
+
 \ if then
 :noname
 2 0= if 2 then

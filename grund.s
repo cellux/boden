@@ -38,9 +38,27 @@ $last_xt = 0
   add ebp, 4
 .endm
 
+.macro compile_push_word
+  #   mov [ebp], eax      89 45 00
+  #   add ebp, 4          83 C5 04
+  mov eax, 0x83004589
+  stosd
+  mov ax, 0x04c5
+  stosw
+.endm
+
 .macro pop_word dst
   sub ebp, 4
   mov \dst, [ebp]
+.endm
+
+.macro compile_pop_word
+  #   sub ebp, 4          83 ED 04
+  #   mov eax, [ebp]      8B 45 00
+  mov eax, 0x8b04ed83
+  stosd
+  mov ax, 0x0045
+  stosw
 .endm
 
 .macro die msg_addr
@@ -587,10 +605,7 @@ _literal:
   stosb
   pop_word eax          # value comes from the data stack
   stosd
-  mov eax, 0x83004589
-  stosd
-  mov ax, 0x04c5
-  stosw
+  compile_push_word
   mov [here], edi
   ret
 
@@ -633,6 +648,30 @@ _bang:
   mov [ebx], eax
   ret
 
+begin_dict_entry ">r" immediate
+  mov edi, [here]
+  compile_pop_word
+  mov al, 0x50      # push eax
+  stosb
+  mov [here], edi
+  ret
+
+begin_dict_entry "r>" immediate
+  mov edi, [here]
+  mov al, 0x58      # pop eax
+  stosb
+  compile_push_word
+  mov [here], edi
+  ret
+
+begin_dict_entry "r@" immediate
+  mov edi, [here]
+  mov ax, 0x5058                # pop eax, push eax
+  stosw
+  compile_push_word
+  mov [here], edi
+  ret
+
 compile_jump:
   # ( R: opcode -- S: address of branch offset )
   mov edi, [here]
@@ -654,10 +693,9 @@ compile_conditional_branch:
   #   or eax, eax             09 C0
   #   <opcode> <offset>       .. ..
   mov edi, [here]
-  mov eax, 0x8b04ed83
-  stosd
-  mov eax, 0xc0090045
-  stosd
+  compile_pop_word
+  mov eax, 0xc009             # or eax, eax
+  stosw
   mov [here], edi
   jmp compile_jump
 
