@@ -184,6 +184,10 @@ drop
 6 square 36 = assert
 7 square 49 = assert
 
+\ words being defined are hidden until ;
+: square square 1+ ;
+5 square 26 = assert
+
 \ aligned
 0 aligned 0 = assert
 1 aligned 4 = assert

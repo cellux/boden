@@ -547,6 +547,10 @@ compare_next:
   ja compare_next
 
 word_found:
+  mov cl, [edi]
+  test cl, 0x40     # smudge bit set?
+  jnz compare_next  # yes: ignore this word
+
   inc edi           # skip namelen, edi = xt
   push_word edi     # always non-zero (true)
   ret
@@ -567,6 +571,10 @@ _colon:
   call _create
   mov edi, [last_xt]
   mov [here], edi       # overwrite code compiled by create
+  dec edi
+  mov al, [edi]
+  or al, 0x40           # set smudge bit
+  stosb
   mov eax, -1           # set compilation state
   mov [state], eax
   ret
@@ -578,6 +586,11 @@ _semicolon:
   stosb
   align edi
   mov [here], edi
+  mov edi, [last_xt]
+  dec edi
+  mov al, [edi]         # namelen
+  and al, 0xbf          # clear smudge bit
+  stosb
   mov eax, 0            # set interpretation state
   mov [state], eax
   ret
