@@ -2,6 +2,8 @@
 : false 0 ;
 : \ $0a parse 2drop ; immediate
 : ( ')' parse 2drop ; immediate
+: 1+ 1 + ;
+: 1- 1 - ;
 : erase 0 fill ;
 : postpone ' compile, ; immediate
 : s" '"' parse swap postpone literal postpone literal ; immediate
@@ -23,8 +25,6 @@
 : tuck swap over ;
 : decimal #10 base ! ;
 : hex #16 base ! ;
-: 1+ 1 + ;
-: 1- 1 - ;
 : +! swap over @ + swap ! ;
 : [ 0 state ! ; immediate
 : ] -1 state ! ; immediate

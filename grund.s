@@ -802,13 +802,13 @@ unknown_word:
   mov edx, esi      # first byte of unknown word
 
   mov bl, [esi]
-  cmp bl, 0x27      # single quote
+  cmp bl, 0x27      # single quote?
   je char_literal
-  cmp bl, 0x23      # '#'
+  cmp bl, 0x23      # '#'?
   je base_10
-  cmp bl, 0x24      # '$'
+  cmp bl, 0x24      # '$'?
   je base_16
-  cmp bl, 0x25      # '%'
+  cmp bl, 0x25      # '%'?
   je base_2
 
   mov edi, [base]
@@ -824,7 +824,7 @@ char_literal:
   ja not_a_number
   movzx eax, byte ptr [esi+1]
   add esi, 4                    # skip over char literal
-  jmp positive_number
+  jmp found_number
 
 base_10:
   mov edi, 10
@@ -872,14 +872,17 @@ parse_digit:
 
 end_of_number:
   pop edx
-  or ecx, ecx
-  jz positive_number
+  mov bl, [esi]
+  cmp bl, 0x20        # character after last digit is not whitespace?
+  ja not_a_number
+  or ecx, ecx         # multiply by -1 if there was a minus sign
+  jz found_number
   neg eax
 
-positive_number:
+found_number:
   push_word eax
   mov ebx, [state]
-  or ebx, ebx         # interpretation state?
+  or ebx, ebx         # interpreting?
   jz 1f               # leave number on stack
   call _literal       # compile code which pushes number to stack
 1:
