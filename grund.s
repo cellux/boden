@@ -685,6 +685,49 @@ begin_dict_entry "r@" immediate
   mov [here], edi
   ret
 
+begin_dict_entry "2>r" immediate
+  mov edi, [here]
+  # push dword ptr [ebp-8]    FF 75 F8
+  # push dword ptr [ebp-4]    FF 75 FC
+  # sub ebp, 8                83 ED 08
+  mov eax, 0xfff875ff
+  stosd
+  mov eax, 0xed83fc75
+  stosd
+  mov al, 0x08
+  stosb
+  mov [here], edi
+  ret
+
+begin_dict_entry "2r>" immediate
+  mov edi, [here]
+  # add ebp, 8                # 83 C5 08
+  # pop dword ptr [ebp-4]     # 8F 45 FC
+  # pop dword ptr [ebp-8]     # 8F 45 F8
+  mov eax, 0x8f08c583
+  stosd
+  mov eax, 0x458ffc45
+  stosd
+  mov al, 0xf8
+  stosb
+  mov [here], edi
+  ret
+
+begin_dict_entry "2r@" immediate
+  mov edi, [here]
+  # mov eax, [esp+4]          8B 44 24 04
+  mov eax, 0x0424448b
+  stosd
+  compile_push_word
+  # mov eax, [esp]            8B 04 24
+  mov ax, 0x048b
+  stosw
+  mov al, 0x24
+  stosb
+  compile_push_word
+  mov [here], edi
+  ret
+
 compile_jump:
   # ( R: opcode -- S: address of branch offset )
   mov edi, [here]

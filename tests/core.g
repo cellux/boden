@@ -278,6 +278,24 @@ r> 5 = assert
 r> 10 = assert
 ; execute
 
+\ 2>r 2r> 2r@
+:noname
+10 >r
+9 >r
+7 1
+8 3 2>r
+2dup 1 = assert drop
+2dup swap 7 = assert drop
+2r@ 3 = assert 8 = assert
+2dup 1 = assert drop
+2r@ 3 = assert 8 = assert
+2r> 3 = assert 8 = assert
+1 = assert
+7 = assert
+r> 9 = assert
+r> 10 = assert
+; execute
+
 \ if then
 :noname
 2 0= if 2 then
