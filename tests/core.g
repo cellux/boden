@@ -303,9 +303,9 @@ again
 0 begin dup 505 < while 10+ repeat 510 = assert
 ; execute
 
-\ begin until repeat
+\ begin until
 :noname
-0 begin dup 505 > until 10+ repeat 510 = assert
+0 begin 10+ dup 505 > until 510 = assert
 ; execute
 
 \ depth

@@ -37,8 +37,8 @@
 : begin here ; immediate
 : again ,jmp patch-jmp ; immediate
 : while ,jmpz ; immediate
-: until ,jmpnz ; immediate
 : repeat postpone else patch-jmp ; immediate
+: until ,jmpz patch-jmp ; immediate
 
 : max 2dup > if drop else nip then ;
 : min 2dup < if drop else nip then ;
