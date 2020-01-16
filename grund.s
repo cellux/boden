@@ -872,9 +872,6 @@ parse_digit:
 
 end_of_number:
   pop edx
-  cmp esi, edx
-  je not_a_number
-
   or ecx, ecx
   jz positive_number
   neg eax
