@@ -754,25 +754,25 @@ _start:
 
 parse_word:
   call _tick        # ( -- xt|0 )
-  pop_word edi
-  or edi, edi
+  pop_word ebx
+  or ebx, ebx
   jz unknown_word
 
-  mov cl, [edi-1]   # namelen
+  mov cl, [ebx-1]   # namelen
   mov eax, [state]
-  or eax, eax       # are we in interpretation state?
+  or eax, eax       # interpreting?
   jz execute_word
 
   test cl, 0x20     # is word immediate?
   jnz execute_word  # yes: execute it
 
 compile_word:
-  push_word edi
+  push_word ebx
   call _compile_comma
   jmp parse_word
 
 execute_word:
-  call edi
+  call ebx
   jmp parse_word
 
 is_digit: # helper function
