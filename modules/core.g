@@ -9,8 +9,6 @@
 : s" '"' parse swap postpone literal postpone literal ; immediate
 : bl $20 ;
 : space bl emit ;
-: cell+ 4 + ;
-: cells 4 * ;
 : char+ 1+ ;
 : chars ;
 : char parse-name drop c@ ;
@@ -42,3 +40,4 @@
 
 : max 2dup > if drop else nip then ;
 : min 2dup < if drop else nip then ;
+

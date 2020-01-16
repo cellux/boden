@@ -98,6 +98,14 @@ _debug_trap:
   int 3
   ret
 
+begin_dict_entry "cells"
+  shl dword ptr [ebp-4], 2
+  ret
+
+begin_dict_entry "cell+"
+  add dword ptr [ebp-4], 4
+  ret
+
 begin_dict_entry "depth"
   lea ebx, [data_stack]
   mov eax, ebp
