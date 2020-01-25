@@ -99,14 +99,17 @@ _break:
   ret
 
 begin_dict_entry "cells"
+_cells:
   shl dword ptr [ebp-4], 2
   ret
 
 begin_dict_entry "cell+"
+_cell_plus:
   add dword ptr [ebp-4], 4
   ret
 
 begin_dict_entry "depth"
+_depth:
   lea ebx, [data_stack]
   mov eax, ebp
   sub eax, ebx
@@ -185,6 +188,7 @@ _type:
   ret
 
 begin_dict_entry "abs"
+_abs:
   mov eax, [ebp-4]
   or eax, eax
   jns 1f
@@ -194,6 +198,7 @@ begin_dict_entry "abs"
   ret
 
 begin_dict_entry "mod"
+_mod:
   pop_word ebx
   pop_word eax
   xor edx, edx
@@ -202,6 +207,7 @@ begin_dict_entry "mod"
   ret
 
 begin_dict_entry "and"
+_and:
   pop_word ebx
   pop_word eax
   and eax, ebx
@@ -209,6 +215,7 @@ begin_dict_entry "and"
   ret
 
 begin_dict_entry "or"
+_or:
   pop_word ebx
   pop_word eax
   or eax, ebx
@@ -216,6 +223,7 @@ begin_dict_entry "or"
   ret
 
 begin_dict_entry "xor"
+_xor:
   pop_word ebx
   pop_word eax
   xor eax, ebx
@@ -223,6 +231,7 @@ begin_dict_entry "xor"
   ret
 
 begin_dict_entry "lshift"
+_lshift:
   pop_word ecx
   pop_word eax
   shl eax, cl
@@ -230,6 +239,7 @@ begin_dict_entry "lshift"
   ret
 
 begin_dict_entry "rshift"
+_rshift:
   pop_word ecx
   pop_word eax
   shr eax, cl
@@ -405,6 +415,7 @@ _pick:
   ret
 
 begin_dict_entry "roll"
+_roll:
   push esi
   pop_word ebx
   mov ecx, ebx
@@ -440,12 +451,14 @@ _char_at:
   ret
 
 begin_dict_entry "c!"
+_c_bang:
   pop_word edi
   pop_word eax
   stosb
   ret
 
 begin_dict_entry "fill"
+_fill:
   pop_word eax    # char
   pop_word ecx    # len
   pop_word edi    # addr
@@ -645,12 +658,14 @@ _compile_comma:
   ret
 
 begin_dict_entry "constant"
+_constant:
   call _create
   mov edi, [last_xt]
   mov [here], edi       # overwrite code compiled by create
   jmp _literal
 
 begin_dict_entry "state"
+_state:
   lea eax, [state]
   push_word eax
   ret
@@ -670,6 +685,7 @@ _bang:
   ret
 
 begin_dict_entry ">r" immediate
+_to_r:
   mov edi, [here]
   compile_pop_word
   mov al, 0x50      # push eax
@@ -678,6 +694,7 @@ begin_dict_entry ">r" immediate
   ret
 
 begin_dict_entry "r>" immediate
+_from_r:
   mov edi, [here]
   mov al, 0x58      # pop eax
   stosb
@@ -686,6 +703,7 @@ begin_dict_entry "r>" immediate
   ret
 
 begin_dict_entry "r@" immediate
+_at_r:
   mov edi, [here]
   mov ax, 0x5058                # pop eax, push eax
   stosw
@@ -694,6 +712,7 @@ begin_dict_entry "r@" immediate
   ret
 
 begin_dict_entry "2>r" immediate
+_2_to_r:
   mov edi, [here]
   # push dword ptr [ebp-8]    FF 75 F8
   # push dword ptr [ebp-4]    FF 75 FC
@@ -708,6 +727,7 @@ begin_dict_entry "2>r" immediate
   ret
 
 begin_dict_entry "2r>" immediate
+_2_from_r:
   mov edi, [here]
   # add ebp, 8                # 83 C5 08
   # pop dword ptr [ebp-4]     # 8F 45 FC
@@ -722,6 +742,7 @@ begin_dict_entry "2r>" immediate
   ret
 
 begin_dict_entry "2r@" immediate
+_2_at_r:
   mov edi, [here]
   # mov eax, [esp+4]          8B 44 24 04
   mov eax, 0x0424448b
