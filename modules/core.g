@@ -29,7 +29,7 @@
 : :noname here postpone ] ; immediate
 
 : if ,jmpz ; immediate
-: else here 2 + swap patch-jmp ,jmp ; immediate
+: else here 5 + swap patch-jmp ,jmp ; immediate
 : then here swap patch-jmp ; immediate
 
 : begin here ; immediate
@@ -40,4 +40,3 @@
 
 : max 2dup > if drop else nip then ;
 : min 2dup < if drop else nip then ;
-
