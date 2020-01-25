@@ -1,15 +1,20 @@
 name := grund
-modules := $(wildcard modules/*.g)
+modules := \
+	modules/core.g \
+	modules/extra.g \
+	modules/assembler.g
+main := main.g
 
 ifeq ($(MAKECMDGOALS),test)
 name := tgrund
 modules += $(wildcard tests/*.g)
+main := tmain.g
 endif
 
 $(name): $(name).o
 	ld -o $@ $^
 
-$(name).all: $(modules) main.g
+$(name).all: $(modules) $(main)
 	cat $^ > $@
 
 $(name).o: grund.s $(name).all

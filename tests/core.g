@@ -12,6 +12,7 @@ false 0 = assert
 1234 #1234 = assert
 \ $ (base 16)
 1234 $4d2 = assert
+$deadbeef 1+ $deadbef0 = assert
 \ % (base 2)
 1234 %10011010010 = assert
 
@@ -351,7 +352,3 @@ test-buffer @ $00345678 = assert
 test-buffer 1 cells + @ $9a000000 = assert
 test-buffer 2 cells + @ $0fedcba9 = assert
 test-buffer 3 cells + @ $87654321 = assert
-
-:noname
-s" All tests successful. Ready to rock." type cr
-; execute
