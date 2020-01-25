@@ -93,8 +93,8 @@ skip_until_whitespace:
 0:
   ret
 
-begin_dict_entry "debug-trap"
-_debug_trap:
+begin_dict_entry "break"
+_break:
   int 3
   ret
 
