@@ -1,3 +1,5 @@
+BUILDDIR := build
+
 name := grund
 modules := \
 	modules/core.g \
@@ -11,15 +13,16 @@ modules += $(wildcard tests/*.g)
 main := tmain.g
 endif
 
-$(name): $(name).o
-	ld -o $@ $^
+$(BUILDDIR)/$(name): grund.s $(modules) $(main)
+	mkdir -p $(BUILDDIR)
+	cat $(modules) $(main) > $(BUILDDIR)/grund.g
+	cd $(BUILDDIR) && \
+		as -g -almnc=$(name).lst -o $(name).o ../grund.s && \
+		ld -o $(name) $(name).o
 
-$(name).all: $(modules) $(main)
-	cat $^ > $@
+test: $(BUILDDIR)/tgrund
+	@$(BUILDDIR)/tgrund
 
-$(name).o: grund.s $(name).all
-	cp $(name).all grund.g
-	as -g -almnc=grund.lst -o $@ $<
-
-test: tgrund
-	@./tgrund
+.PHONY: clean
+clean:
+	rm -rf $(BUILDDIR)
