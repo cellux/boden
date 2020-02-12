@@ -94,21 +94,25 @@ skip_until_whitespace:
   ret
 
 begin_dict_entry "break"
+# ( -- )
 _break:
   int 3
   ret
 
 begin_dict_entry "cells"
+# ( u1 -- u2 )
 _cells:
   shl dword ptr [ebp-4], 2
   ret
 
 begin_dict_entry "cell+"
+# ( n1 -- n2 )
 _cell_plus:
   add dword ptr [ebp-4], 4
   ret
 
 begin_dict_entry "depth"
+# ( -- n )
 _depth:
   lea ebx, [data_stack]
   mov eax, ebp
@@ -118,6 +122,7 @@ _depth:
   ret
 
 begin_dict_entry "aligned"
+# ( addr1 -- addr2 )
 _aligned:
   mov eax, [ebp-4]
   align eax
@@ -125,6 +130,7 @@ _aligned:
   ret
 
 begin_dict_entry "align"
+# ( -- )
 _align:
   mov eax, [here]
   align eax
@@ -132,12 +138,13 @@ _align:
   ret
 
 begin_dict_entry "parse"
+# ( c -- addr len )
 _parse:
   pop_word eax      # al = delimiter
   mov edi, esi
   mov ecx, 0x10000  # max length (64k)
   repne scasb
-  jz 1f
+  je 1f
   die msg_parse_overflow
 
 # found delimiter
@@ -164,23 +171,27 @@ _parse_name:
   ret
 
 begin_dict_entry "sys:exit"
+# ( n -- )
 _sys_exit:
   pop_word eax
   sys_exit eax
 
 begin_dict_entry "emit"
+# ( c -- )
 _emit:
   sys_write 1, ebp-4, 1
   sub ebp, 4
   ret
 
 begin_dict_entry "cr"
+# ( -- )
 _cr:
   mov eax, 0x0a
   push_word eax
   jmp _emit
 
 begin_dict_entry "type"
+# ( addr len -- )
 _type:
   pop_word edi      # len
   pop_word edx      # addr
@@ -188,6 +199,7 @@ _type:
   ret
 
 begin_dict_entry "abs"
+# ( n -- u )
 _abs:
   mov eax, [ebp-4]
   or eax, eax
@@ -198,6 +210,7 @@ _abs:
   ret
 
 begin_dict_entry "mod"
+# ( n u -- n )
 _mod:
   pop_word ebx
   pop_word eax
@@ -207,6 +220,7 @@ _mod:
   ret
 
 begin_dict_entry "and"
+# ( u1 u2 -- u3 )
 _and:
   pop_word ebx
   pop_word eax
@@ -215,6 +229,7 @@ _and:
   ret
 
 begin_dict_entry "or"
+# ( u1 u2 -- u3 )
 _or:
   pop_word ebx
   pop_word eax
@@ -223,6 +238,7 @@ _or:
   ret
 
 begin_dict_entry "xor"
+# ( u1 u2 -- u3 )
 _xor:
   pop_word ebx
   pop_word eax
@@ -231,6 +247,7 @@ _xor:
   ret
 
 begin_dict_entry "lshift"
+# ( u1 u2 -- u3 )
 _lshift:
   pop_word ecx
   pop_word eax
@@ -239,6 +256,7 @@ _lshift:
   ret
 
 begin_dict_entry "rshift"
+# ( u1 u2 -- u3 )
 _rshift:
   pop_word ecx
   pop_word eax
@@ -247,6 +265,7 @@ _rshift:
   ret
 
 begin_dict_entry "="
+# ( n1 n2 -- t|f )
 _eq:
   pop_word ebx
   pop_word eax
@@ -259,6 +278,7 @@ _eq:
   ret
 
 begin_dict_entry "<>"
+# ( n1 n2 - t|f )
 _ne:
   pop_word ebx
   pop_word eax
@@ -271,6 +291,7 @@ _ne:
   ret
 
 begin_dict_entry "<"
+# ( n1 n2 - t|f )
 _lt:
   pop_word ebx
   pop_word eax
@@ -283,6 +304,7 @@ _lt:
   ret
 
 begin_dict_entry "<="
+# ( n1 n2 - t|f )
 _le:
   pop_word ebx
   pop_word eax
@@ -295,6 +317,7 @@ _le:
   ret
 
 begin_dict_entry ">"
+# ( n1 n2 - t|f )
 _ge:
   pop_word ebx
   pop_word eax
@@ -307,6 +330,7 @@ _ge:
   ret
 
 begin_dict_entry ">="
+# ( n1 n2 - t|f )
 _gt:
   pop_word ebx
   pop_word eax
@@ -319,6 +343,7 @@ _gt:
   ret
 
 begin_dict_entry "invert"
+# ( n1 -- n2 )
 _invert:
   mov eax, [ebp-4]
   xor eax, -1
@@ -326,18 +351,21 @@ _invert:
   ret
 
 begin_dict_entry "+"
+# ( n1 n2 -- n3 )
 _add:
   pop_word eax
   add [ebp-4], eax
   ret
 
 begin_dict_entry "-"
+# ( n1 n2 -- n3 )
 _sub:
   pop_word eax
   sub [ebp-4], eax
   ret
 
 begin_dict_entry "*"
+# ( n1 n2 -- n3 )
 _mul:
   pop_word eax
   imul dword ptr [ebp-4]
@@ -345,6 +373,7 @@ _mul:
   ret
 
 begin_dict_entry "/"
+# ( n1 n2 -- n3 )
 _div:
   pop_word ebx
   pop_word eax
@@ -354,6 +383,7 @@ _div:
   ret
 
 begin_dict_entry "."
+# ( n -- )
 _dot:
   pop_word eax
   xor ecx, ecx
@@ -373,6 +403,7 @@ _dot:
   jmp _cr
 
 begin_dict_entry "swap"
+# ( x1 x2 -- x2 x1 )
 _swap:
   mov eax, [ebp-4]
   mov ebx, [ebp-8]
@@ -381,17 +412,20 @@ _swap:
   ret
 
 begin_dict_entry "dup"
+# ( x -- x x )
 _dup:
   mov eax, [ebp-4]
   push_word eax
   ret
 
 begin_dict_entry "drop"
+# ( x1 x2 -- x1 )
 _drop:
   sub ebp, 4
   ret
 
 begin_dict_entry "nip"
+# ( x1 x2 -- x2 )
 _nip:
   sub ebp, 4
   mov eax, [ebp]
@@ -399,12 +433,14 @@ _nip:
   ret
 
 begin_dict_entry "over"
+# ( x1 x2 -- x1 x2 x1 )
 _over:
   mov eax, [ebp-8]
   push_word eax
   ret
 
 begin_dict_entry "pick"
+# ( x*i u -- x*i x )
 _pick:
   pop_word ebx
   shl ebx, 2
@@ -415,6 +451,7 @@ _pick:
   ret
 
 begin_dict_entry "roll"
+# ( x*i u -- x*i )
 _roll:
   push esi
   pop_word ebx
