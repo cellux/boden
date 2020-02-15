@@ -3,7 +3,7 @@
 
 .text
 
-/* linux system calls */
+/* interface to linux syscalls */
 
 .macro sys_exit status
   mov ebx, \status
@@ -19,26 +19,47 @@
   int 0x80
 .endm
 
+# structure of a dictionary entry:
+#
+# field   size  description
+# -------------------------
+# link    4     link to previous xt
+# name    ?     name of definition
+# len     1     name length (bits 0-4) + control bits (bits 5-7)
+# body    ?     body of definition
+#
+# an xt (eXecution Token) is a pointer to body
+
+.local $last_xt, $name_len, $control_bits
+
 $last_xt = 0
 
 .macro begin_dict_entry name immediate
   .dc.a $last_xt    # link
 0:
   .ascii "\name"    # name
-  .ifb \immediate
-  .dc.b .-0b        # namelen
-  .else
-  .dc.b .-0b+0x20   # namelen + immediate
+  $name_len = . - 0b
+  $control_bits = 0
+  .ifnb \immediate
+  $control_bits = $control_bits | 0x20
   .endif
+  .dc.b $name_len | $control_bits
   $last_xt = .
 .endm
 
-.macro push_word src
-  mov [ebp], \src
+# ebp -> data stack
+# esp -> return stack
+#
+# data/returns stacks share the same memory region
+#
+# data stack grows upwards, return stack downwards
+
+.macro dpush src
+  mov dword ptr [ebp], \src
   add ebp, 4
 .endm
 
-.macro compile_push_word
+.macro compile_dpush_eax
   #   mov [ebp], eax      89 45 00
   #   add ebp, 4          83 C5 04
   mov eax, 0x83004589
@@ -47,12 +68,12 @@ $last_xt = 0
   stosw
 .endm
 
-.macro pop_word dst
+.macro dpop dst
   sub ebp, 4
-  mov \dst, [ebp]
+  mov \dst, dword ptr [ebp]
 .endm
 
-.macro compile_pop_word
+.macro compile_dpop_eax
   #   sub ebp, 4          83 ED 04
   #   mov eax, [ebp]      8B 45 00
   mov eax, 0x8b04ed83
@@ -61,19 +82,30 @@ $last_xt = 0
   stosw
 .endm
 
-.macro die msg_addr
-  sys_write 1, \msg_addr, \msg_addr\()_len
+.local $msg, $msg_len
+
+.macro die msg
+  jmp 0f
+$msg:
+  .ascii "\msg"
+$msg_len = . - $msg
+0:
+  sys_write 1, $msg, $msg_len
   call _cr
   sys_exit 1
 .endm
 
-.macro align reg
+.macro align_reg reg
   test \reg, 3
   jz 1f
   and \reg, -4
   add \reg, 4
 1:
 .endm
+
+# esi -> next byte in parse area
+
+# whitespace := space (0x20) | control character (0x00-0x1f)
 
 skip_while_whitespace:
   mov al, [esi]
@@ -118,66 +150,77 @@ _depth:
   mov eax, ebp
   sub eax, ebx
   shr eax, 2
-  push_word eax
+  dpush eax
   ret
 
 begin_dict_entry "aligned"
-# ( addr1 -- addr2 )
+# ( addr -- a-addr )
 _aligned:
   mov eax, [ebp-4]
-  align eax
+  align_reg eax
   mov [ebp-4], eax
   ret
+
+# `here` contains the address of the next free location in the dictionary
 
 begin_dict_entry "align"
 # ( -- )
 _align:
   mov eax, [here]
-  align eax
+  align_reg eax
   mov [here], eax
   ret
 
 begin_dict_entry "parse"
-# ( c -- addr len )
+# ( char -- addr len )
 _parse:
-  pop_word eax      # al = delimiter
+  dpop eax          # al = delimiter
   mov edi, esi
   mov ecx, 0x10000  # max length (64k)
   repne scasb
   je 1f
-  die msg_parse_overflow
+  die "parse overflow"
 
 # found delimiter
 1:
-  # esi: first byte of string
-  # edi: one byte after delimiter
+  # esi -> first byte
+  # edi -> one byte after delimiter
   mov eax, edi
   dec eax
   sub eax, esi      # eax = length of string
-  push_word esi     # addr
-  push_word eax     # len
+  dpush esi         # addr
+  dpush eax         # len
   mov esi, edi      # esi = address of next byte in parse area
   ret
 
-begin_dict_entry "parse-name"
-_parse_name:
+begin_dict_entry "scan-token"
+# ( -- addr len)
+_scan_token:
   call skip_while_whitespace
-  push_word esi     # addr
+  dpush esi         # addr
   mov ebx, esi
   call skip_until_whitespace
   mov eax, esi
   sub eax, ebx
-  push_word eax     # len
+  dpush eax         # len
+  mov esi, ebx      # restore parse area pointer
+  ret
+
+begin_dict_entry "parse-name"
+# ( -- addr len )
+_parse_name:
+  call _scan_token
+  add esi, [ebp-4]  # skip over scanned token
   ret
 
 begin_dict_entry "sys:exit"
 # ( n -- )
 _sys_exit:
-  pop_word eax
+  dpop eax
   sys_exit eax
 
 begin_dict_entry "emit"
-# ( c -- )
+# ( char -- )
 _emit:
   sys_write 1, ebp-4, 1
   sub ebp, 4
@@ -186,15 +229,14 @@ _emit:
 begin_dict_entry "cr"
 # ( -- )
 _cr:
-  mov eax, 0x0a
-  push_word eax
+  dpush 0x0a        # actually LF
   jmp _emit
 
 begin_dict_entry "type"
 # ( addr len -- )
 _type:
-  pop_word edi      # len
-  pop_word edx      # addr
+  dpop edi          # len
+  dpop edx          # addr
   sys_write 1, edx, edi
   ret
 
@@ -210,137 +252,65 @@ _abs:
   ret
 
 begin_dict_entry "mod"
-# ( n u -- n )
+# ( n1 n2 -- n3 )
 _mod:
-  pop_word ebx
-  pop_word eax
+  dpop ebx
+  dpop eax
   xor edx, edx
   idiv ebx
-  push_word edx
+  dpush edx
   ret
 
-begin_dict_entry "and"
+.macro define_bin_op name
+begin_dict_entry "\name"
 # ( u1 u2 -- u3 )
-_and:
-  pop_word ebx
-  pop_word eax
-  and eax, ebx
-  push_word eax
+_\name\():
+  dpop ebx
+  dpop eax
+  \name eax, ebx
+  dpush eax
   ret
+.endm
 
-begin_dict_entry "or"
+define_bin_op "and"
+define_bin_op "or"
+define_bin_op "xor"
+
+.macro define_shift_op name instr
+begin_dict_entry "\name"
 # ( u1 u2 -- u3 )
-_or:
-  pop_word ebx
-  pop_word eax
-  or eax, ebx
-  push_word eax
+_\name\():
+  dpop ecx
+  dpop eax
+  \instr eax, cl
+  dpush eax
   ret
+.endm
 
-begin_dict_entry "xor"
-# ( u1 u2 -- u3 )
-_xor:
-  pop_word ebx
-  pop_word eax
-  xor eax, ebx
-  push_word eax
-  ret
+define_shift_op "lshift" , "shl"
+define_shift_op "rshift" , "shr"
 
-begin_dict_entry "lshift"
-# ( u1 u2 -- u3 )
-_lshift:
-  pop_word ecx
-  pop_word eax
-  shl eax, cl
-  push_word eax
-  ret
-
-begin_dict_entry "rshift"
-# ( u1 u2 -- u3 )
-_rshift:
-  pop_word ecx
-  pop_word eax
-  shr eax, cl
-  push_word eax
-  ret
-
-begin_dict_entry "="
+.macro define_cmp_op name label jinstr
+begin_dict_entry "\name"
 # ( n1 n2 -- t|f )
-_eq:
-  pop_word ebx
-  pop_word eax
+_\label\():
+  dpop ebx
+  dpop eax
   mov edx, -1       # true (equal)
   cmp eax, ebx
-  je 1f
+  \jinstr 1f
   inc edx           # false (not equal)
 1:
-  push_word edx
+  dpush edx
   ret
+.endm
 
-begin_dict_entry "<>"
-# ( n1 n2 - t|f )
-_ne:
-  pop_word ebx
-  pop_word eax
-  mov edx, -1       # true (equal)
-  cmp eax, ebx
-  jne 1f
-  inc edx           # false (not equal)
-1:
-  push_word edx
-  ret
-
-begin_dict_entry "<"
-# ( n1 n2 - t|f )
-_lt:
-  pop_word ebx
-  pop_word eax
-  mov edx, -1
-  cmp eax, ebx
-  jl 1f
-  inc edx
-1:
-  push_word edx
-  ret
-
-begin_dict_entry "<="
-# ( n1 n2 - t|f )
-_le:
-  pop_word ebx
-  pop_word eax
-  mov edx, -1
-  cmp eax, ebx
-  jle 1f
-  inc edx
-1:
-  push_word edx
-  ret
-
-begin_dict_entry ">"
-# ( n1 n2 - t|f )
-_ge:
-  pop_word ebx
-  pop_word eax
-  mov edx, -1
-  cmp eax, ebx
-  jg 1f
-  inc edx
-1:
-  push_word edx
-  ret
-
-begin_dict_entry ">="
-# ( n1 n2 - t|f )
-_gt:
-  pop_word ebx
-  pop_word eax
-  mov edx, -1
-  cmp eax, ebx
-  jge 1f
-  inc edx
-1:
-  push_word edx
-  ret
+define_cmp_op "="  , "eq" , je
+define_cmp_op "<>" , "ne" , jne
+define_cmp_op "<"  , "lt" , jl
+define_cmp_op "<=" , "le" , jle
+define_cmp_op ">=" , "ge" , jge
+define_cmp_op ">"  , "gt" , jg
 
 begin_dict_entry "invert"
 # ( n1 -- n2 )
@@ -353,21 +323,21 @@ _invert:
 begin_dict_entry "+"
 # ( n1 n2 -- n3 )
 _add:
-  pop_word eax
+  dpop eax
   add [ebp-4], eax
   ret
 
 begin_dict_entry "-"
 # ( n1 n2 -- n3 )
 _sub:
-  pop_word eax
+  dpop eax
   sub [ebp-4], eax
   ret
 
 begin_dict_entry "*"
 # ( n1 n2 -- n3 )
 _mul:
-  pop_word eax
+  dpop eax
   imul dword ptr [ebp-4]
   mov [ebp-4], eax
   ret
@@ -375,17 +345,17 @@ _mul:
 begin_dict_entry "/"
 # ( n1 n2 -- n3 )
 _div:
-  pop_word ebx
-  pop_word eax
+  dpop ebx
+  dpop eax
   xor edx, edx
   idiv ebx
-  push_word eax
+  dpush eax
   ret
 
 begin_dict_entry "."
 # ( n -- )
 _dot:
-  pop_word eax
+  dpop eax
   xor ecx, ecx
 0:
   xor edx, edx
@@ -415,7 +385,7 @@ begin_dict_entry "dup"
 # ( x -- x x )
 _dup:
   mov eax, [ebp-4]
-  push_word eax
+  dpush eax
   ret
 
 begin_dict_entry "drop"
@@ -436,25 +406,25 @@ begin_dict_entry "over"
 # ( x1 x2 -- x1 x2 x1 )
 _over:
   mov eax, [ebp-8]
-  push_word eax
+  dpush eax
   ret
 
 begin_dict_entry "pick"
 # ( x*i u -- x*i x )
 _pick:
-  pop_word ebx
+  dpop ebx
   shl ebx, 2
   lea edi, [ebp-4]
   sub edi, ebx
   mov eax, [edi]
-  push_word eax
+  dpush eax
   ret
 
 begin_dict_entry "roll"
 # ( x*i u -- x*i )
 _roll:
   push esi
-  pop_word ebx
+  dpop ebx
   mov ecx, ebx
   shl ebx, 2
   mov edi, ebp
@@ -470,9 +440,9 @@ _roll:
 begin_dict_entry "2dup"
 _2dup:
   mov eax, [ebp-8]
-  push_word eax
+  dpush eax
   mov eax, [ebp-8]
-  push_word eax
+  dpush eax
   ret
 
 begin_dict_entry "2drop"
@@ -482,42 +452,42 @@ _2drop:
 
 begin_dict_entry "c@"
 _char_at:
-  pop_word ebx
+  dpop ebx
   movzx eax, byte ptr [ebx]
-  push_word eax
+  dpush eax
   ret
 
 begin_dict_entry "c!"
 _c_bang:
-  pop_word edi
-  pop_word eax
+  dpop edi
+  dpop eax
   stosb
   ret
 
 begin_dict_entry "fill"
 _fill:
-  pop_word eax    # char
-  pop_word ecx    # len
-  pop_word edi    # addr
+  dpop eax    # char
+  dpop ecx    # len
+  dpop edi    # addr
   rep stosb
   ret
 
 begin_dict_entry "here"
 _here:
   mov eax, [here]
-  push_word eax
+  dpush eax
   ret
 
 begin_dict_entry "allot"
 _allot:
-  pop_word eax
+  dpop eax
   add [here], eax
   ret
 
 begin_dict_entry ","
 _comma:
   mov edi, [here]
-  pop_word eax
+  dpop eax
   stosd
   mov [here], edi
   ret
@@ -525,7 +495,7 @@ _comma:
 begin_dict_entry "c,"
 _c_comma:
   mov edi, [here]
-  pop_word eax
+  dpop eax
   stosb
   mov [here], edi
   ret
@@ -533,7 +503,7 @@ _c_comma:
 begin_dict_entry "base"
 _base:
   lea eax, [base]
-  push_word eax
+  dpush eax
   ret
 
 begin_dict_entry "create"
@@ -543,8 +513,8 @@ _create:
   mov edi, [here]
   mov eax, [last_xt]
   stosd                   # link
-  pop_word ecx            # ecx = len
-  pop_word esi            # esi = addr
+  dpop ecx                # ecx = len
+  dpop esi                # esi = addr
   push ecx
   rep movsb               # name
   pop eax
@@ -571,7 +541,7 @@ _create:
   mov al, 0xc3
   stosb
   mov eax, edi
-  align eax               # align to cell boundary
+  align_reg eax           # align to cell boundary
   pop edi
   stosd                   # patch aligned address into data pointer
   mov [here], eax
@@ -593,7 +563,7 @@ compare_next:
   dec edi
   mov cl, [edi]     # namelen
   and ecx, 0x1f     # zero out all other bits, max(namelen) = 31
-  sub edi, ecx      # first character of name in dictionary entry
+  sub edi, ecx      # first character of name
   mov ebx, [edi-4]  # previous xt from link field
   mov esi, edx      # first character of word to parse
   repe cmpsb
@@ -610,18 +580,18 @@ word_found:
   jnz compare_next  # yes: ignore this word
 
   inc edi           # skip namelen, edi = xt
-  push_word edi     # always non-zero (true)
+  dpush edi     # always non-zero (true)
   ret
 
 word_not_found:
   mov esi, edx      # restore parse area ptr to first char of word
   xor eax, eax
-  push_word eax     # false
+  dpush eax     # false
   ret
 
 begin_dict_entry "execute"
 _execute:
-  pop_word edi
+  dpop edi
   jmp edi
 
 begin_dict_entry ":"
@@ -642,7 +612,7 @@ _semicolon:
   mov edi, [here]
   mov al, 0xc3          # RET
   stosb
-  align edi
+  align_reg edi
   mov [here], edi
   mov edi, [last_xt]
   dec edi
@@ -674,9 +644,9 @@ _literal:
 
   mov al, 0xb8
   stosb
-  pop_word eax          # value comes from the data stack
+  dpop eax          # value comes from the data stack
   stosd
-  compile_push_word
+  compile_dpush_eax
   mov [here], edi
   ret
 
@@ -687,7 +657,7 @@ _compile_comma:
   stosb
   push edi
   add edi, 4        # address of location after CALL instruction
-  pop_word eax      # xt (word address)
+  dpop eax      # xt (word address)
   sub eax, edi      # convert to relative
   pop edi
   stosd
@@ -704,7 +674,7 @@ _constant:
 begin_dict_entry "state"
 _state:
   lea eax, [state]
-  push_word eax
+  dpush eax
   ret
 
 begin_dict_entry "@"
@@ -716,15 +686,15 @@ _at:
 
 begin_dict_entry "!"
 _bang:
-  pop_word ebx
-  pop_word eax
+  dpop ebx
+  dpop eax
   mov [ebx], eax
   ret
 
 begin_dict_entry ">r" immediate
 _to_r:
   mov edi, [here]
-  compile_pop_word
+  compile_dpop_eax
   mov al, 0x50      # push eax
   stosb
   mov [here], edi
@@ -735,7 +705,7 @@ _from_r:
   mov edi, [here]
   mov al, 0x58      # pop eax
   stosb
-  compile_push_word
+  compile_dpush_eax
   mov [here], edi
   ret
 
@@ -744,7 +714,7 @@ _at_r:
   mov edi, [here]
   mov ax, 0x5058                # pop eax, push eax
   stosw
-  compile_push_word
+  compile_dpush_eax
   mov [here], edi
   ret
 
@@ -784,13 +754,13 @@ _2_at_r:
   # mov eax, [esp+4]          8B 44 24 04
   mov eax, 0x0424448b
   stosd
-  compile_push_word
+  compile_dpush_eax
   # mov eax, [esp]            8B 04 24
   mov ax, 0x048b
   stosw
   mov al, 0x24
   stosb
-  compile_push_word
+  compile_dpush_eax
   mov [here], edi
   ret
 
@@ -804,7 +774,7 @@ compile_jump:
   mov al, ah
   stosb               # store second opcode byte
 1:
-  push_word edi       # address of branch offset
+  dpush edi       # address of branch offset
   xor eax, eax        # placeholder for branch offset (4 bytes)
   stosd
   mov [here], edi
@@ -821,7 +791,7 @@ compile_conditional_branch:
   #   <opcode> <offset>       .. .. .. .. ..      for JMP
   #                           .. .. .. .. .. ..   for Jcc
   mov edi, [here]
-  compile_pop_word
+  compile_dpop_eax
   mov eax, 0xc009             # or eax, eax
   stosw
   mov [here], edi
@@ -848,8 +818,8 @@ _comma_jmp:
 begin_dict_entry "patch-jmp"
 _patch_jmp:
   # ( dest branch-offset-addr -- )
-  pop_word edi
-  pop_word eax
+  dpop edi
+  dpop eax
   sub eax, edi
   sub eax, 4        # offset counts from start of next instruction
   stosd
@@ -873,7 +843,7 @@ _start:
 
 parse_word:
   call _tick        # ( -- xt|0 )
-  pop_word ebx
+  dpop ebx
   or ebx, ebx
   jz unknown_word
 
@@ -886,7 +856,7 @@ parse_word:
   jnz execute_word  # yes: execute it
 
 compile_word:
-  push_word ebx
+  dpush ebx
   call _compile_comma
   jmp parse_word
 
@@ -999,7 +969,7 @@ end_of_number:
   neg eax
 
 found_number:
-  push_word eax
+  dpush eax
   mov ebx, [state]
   or ebx, ebx         # interpreting?
   jz 1f               # leave number on stack
@@ -1012,21 +982,12 @@ not_a_number:
   sub esi, edx
   sys_write 1, edx, esi             # print unknown word
   mov eax, 0x3f
-  push_word eax
+  dpush eax
   call _emit                        # print '?'
   call _cr
   sys_exit 1
 
 .data
-
-.macro msg name str
-msg_\name\():
-  .ascii "\str"
-msg_\name\()_len = . - msg_\name
-.endm
-
-msg parse_overflow "parse overflow"
-msg assertion_failed "assertion failed"
 
 base:
   .dc.a 10
