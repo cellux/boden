@@ -176,6 +176,21 @@ depth 3 = assert
 1 = assert 3 = assert
 9 = assert
 
+\ compare
+:noname
+s" abc" s" abc" compare 0 = assert
+s" abb" s" abc" compare -1 = assert
+s" abd" s" abc" compare 1 = assert
+s" abcd" s" abc" compare 1 = assert
+s" abdd" s" abc" compare 1 = assert
+s" abbd" s" abc" compare -1 = assert
+s" abc" s" abcd" compare -1 = assert
+s" abb" s" abcd" compare -1 = assert
+s" abd" s" abcd" compare 1 = assert
+s" Jerome" s" Calvin" compare 1 = assert
+s" Calvin" s" Jerome" compare -1 = assert
+; execute
+
 \ max min
 5 3 max 5 = assert
 5 3 min 3 = assert

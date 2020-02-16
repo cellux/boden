@@ -473,6 +473,38 @@ _2over:
   dpush eax
   ret
 
+begin_dict_entry "compare"
+# ( c-addr1 u1 c-addr2 u2 -- n )
+_compare:
+  dpop ecx
+  dpop edi
+  dpop ebx
+  dpop esi
+
+  xor eax, eax
+  cmp ebx, ecx
+  je 2f
+  ja 1f
+
+  # len1 (ebx) < len2 (ecx)
+  dec eax
+  xchg ebx, ecx
+  jmp 2f
+
+1:
+  # len1 (ebx) > len2 (ecx)
+  inc eax
+
+2:
+  repe cmpsb
+  je 3f
+  mov eax, -1
+  jb 3f
+  neg eax
+3:
+  dpush eax
+  ret
+
 begin_dict_entry "c@"
 # ( c-addr -- char )
 _char_at:
