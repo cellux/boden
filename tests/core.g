@@ -160,6 +160,22 @@ depth 3 = assert
 \ tuck
 1 2 tuck 2 = assert 1 = assert 2 = assert
 
+\ 2dup
+3 1 2 2dup
+2 = assert 1 = assert
+2 = assert 1 = assert
+3 = assert
+
+\ 2drop
+3 1 2 2drop 3 = assert
+
+\ 2over
+9 3 1 2 4 2over
+1 = assert 3 = assert
+4 = assert 2 = assert
+1 = assert 3 = assert
+9 = assert
+
 \ max min
 5 3 max 5 = assert
 5 3 min 3 = assert

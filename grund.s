@@ -464,6 +464,15 @@ _2drop:
   sub ebp, 8
   ret
 
+begin_dict_entry "2over"
+# ( x1 x2 x3 x4 -- x1 x2 x3 x4 x1 x2 )
+_2over:
+  mov eax, [ebp-16]
+  dpush eax
+  mov eax, [ebp-16]
+  dpush eax
+  ret
+
 begin_dict_entry "c@"
 # ( c-addr -- char )
 _char_at:
