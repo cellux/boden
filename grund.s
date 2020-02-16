@@ -1,6 +1,11 @@
 .intel_syntax noprefix
 .global _start
 
+.local $KiB,$MiB,$GiB
+$KiB = 1024
+$MiB = 1024 * $KiB
+$GiB = 1024 * $MiB
+
 .text
 
 /* interface to linux syscalls */
@@ -41,7 +46,7 @@ $last_xt = 0
   $name_len = . - 0b
   $control_bits = 0
   .ifnb \immediate
-  $control_bits = $control_bits | 0x20
+    $control_bits = $control_bits | 0x20
   .endif
   .dc.b $name_len | $control_bits
   $last_xt = .
@@ -103,26 +108,32 @@ $msg_len = . - $msg
 1:
 .endm
 
-# esi -> next byte in parse area
-
 # whitespace := space (0x20) | control character (0x00-0x1f)
 
-skip_while_whitespace:
-  mov al, [esi]
-  cmp al, 0x20
-  jbe 0f
+begin_dict_entry "skip-while-whitespace"
+_skip_while_whitespace:
+  lea esi, [source]
+  mov ebx, [source_index]
+0:
+  cmp byte ptr [esi+ebx], 0x20
+  jbe 1f
+  mov [source_index], ebx
   ret
-0:
-  inc esi
-  jmp skip_while_whitespace
+1:
+  inc ebx
+  jmp 0b
 
-skip_until_whitespace:
-  mov al, [esi]
-  cmp al, 0x20
-  jbe 0f
-  inc esi
-  jmp skip_until_whitespace
+begin_dict_entry "skip-until-whitespace"
+_skip_until_whitespace:
+  lea esi, [source]
+  mov ebx, [source_index]
 0:
+  cmp byte ptr [esi+ebx], 0x20
+  jbe 1f
+  inc ebx
+  jmp 0b
+1:
+  mov [source_index], ebx
   ret
 
 begin_dict_entry "break"
@@ -174,43 +185,42 @@ _align:
 begin_dict_entry "parse"
 # ( char -- addr len )
 _parse:
+  lea edi, [source]
+  add edi, [source_index]
+  mov esi, edi
   dpop eax          # al = delimiter
-  mov edi, esi
   mov ecx, 0x10000  # max length (64k)
   repne scasb
   je 1f
   die "parse overflow"
 
-# found delimiter
 1:
   # esi -> first byte
   # edi -> one byte after delimiter
   mov eax, edi
+  sub eax, esi
+  add [source_index], eax
   dec eax
-  sub eax, esi      # eax = length of string
   dpush esi         # addr
   dpush eax         # len
-  mov esi, edi      # esi = address of next byte in parse area
-  ret
-
-begin_dict_entry "scan-token"
-# ( -- addr len)
-_scan_token:
-  call skip_while_whitespace
-  dpush esi         # addr
-  mov ebx, esi
-  call skip_until_whitespace
-  mov eax, esi
-  sub eax, ebx
-  dpush eax         # len
-  mov esi, ebx      # restore parse area pointer
   ret
 
 begin_dict_entry "parse-name"
 # ( -- addr len )
 _parse_name:
-  call _scan_token
-  add esi, [ebp-4]  # skip over scanned token
+  call _skip_while_whitespace
+  lea esi, [source]
+  add esi, [source_index]
+  dpush esi         # addr
+  push esi
+  call _skip_until_whitespace
+  lea ebx, [source]
+  add ebx, [source_index]
+  pop esi
+  sub ebx, esi
+  dpush ebx         # len
+  # skip first whitespace character following token
+  inc dword ptr [source_index]
   ret
 
 begin_dict_entry "sys:exit"
@@ -506,10 +516,9 @@ _base:
   dpush eax
   ret
 
-begin_dict_entry "create"
-_create:
+begin_dict_entry "create-dict-entry"
+_create_dict_entry:
   call _parse_name        # ( -- addr len )
-  mov edx, esi            # save parse area pointer
   mov edi, [here]
   mov eax, [last_xt]
   stosd                   # link
@@ -518,8 +527,17 @@ _create:
   push ecx
   rep movsb               # name
   pop eax
+  or al, 0x40             # set smudge bit
   stosb                   # namelen
   mov [last_xt], edi
+  mov [here], edi
+  ret
+
+begin_dict_entry "create"
+_create:
+  call _create_dict_entry
+  mov edi, [here]
+  and byte ptr [edi-1], 0xbf  # clear smudge bit
 
   # now compile the following:
   #
@@ -542,18 +560,18 @@ _create:
   stosb
   mov eax, edi
   align_reg eax           # align to cell boundary
+  mov [here], eax
   pop edi
   stosd                   # patch aligned address into data pointer
-  mov [here], eax
-  mov esi, edx            # restore parse area pointer
   ret
 
 begin_dict_entry "'"
 _tick:
-  call skip_while_whitespace
+  call _parse_name
+  dpop eax          # token length
+  dpop edx          # token address
 
   mov ebx, [last_xt]
-  mov edx, esi      # first character of word to parse
 
 compare_next:
   or ebx,ebx        # no more words in the dictionary?
@@ -565,28 +583,30 @@ compare_next:
   and ecx, 0x1f     # zero out all other bits, max(namelen) = 31
   sub edi, ecx      # first character of name
   mov ebx, [edi-4]  # previous xt from link field
-  mov esi, edx      # first character of word to parse
-  repe cmpsb
-  jnz compare_next
+  cmp cl, al        # length matches?
+  jne compare_next
 
-  # if next char is blank, we found the word
-  lodsb
-  cmp al, 0x20
-  ja compare_next
+  mov esi, edx
+  repe cmpsb        # characters match?
+  jne compare_next
 
 word_found:
   mov cl, [edi]
   test cl, 0x40     # smudge bit set?
   jnz compare_next  # yes: ignore this word
 
-  inc edi           # skip namelen, edi = xt
-  dpush edi     # always non-zero (true)
+  inc edi           # skip over namelen, edi = xt
+  dpush edi         # true
   ret
 
 word_not_found:
-  mov esi, edx      # restore parse area ptr to first char of word
+  # rewind source index to first character of unrecognized token
+  lea esi, [source]
+  sub edx, esi
+  mov [source_index], edx
+
   xor eax, eax
-  dpush eax     # false
+  dpush eax         # false
   ret
 
 begin_dict_entry "execute"
@@ -596,40 +616,26 @@ _execute:
 
 begin_dict_entry ":"
 _colon:
-  call _create
-  mov edi, [last_xt]
-  mov [here], edi       # overwrite code compiled by create
-  dec edi
-  mov al, [edi]
-  or al, 0x40           # set smudge bit
-  stosb
-  mov eax, -1           # set compilation state
-  mov [state], eax
+  call _create_dict_entry
+  mov dword ptr [state], -1   # set compilation state
   ret
 
 begin_dict_entry ";" immediate
 _semicolon:
   mov edi, [here]
-  mov al, 0xc3          # RET
+  mov al, 0xc3                # compile RET
   stosb
   align_reg edi
   mov [here], edi
   mov edi, [last_xt]
-  dec edi
-  mov al, [edi]         # namelen
-  and al, 0xbf          # clear smudge bit
-  stosb
-  mov eax, 0            # set interpretation state
-  mov [state], eax
+  and byte ptr [edi-1], 0xbf  # clear smudge bit
+  mov dword ptr [state], 0    # set interpretation state
   ret
 
 begin_dict_entry "immediate"
 _immediate:
   mov edi, [last_xt]
-  dec edi               # edi -> namelen
-  mov al, [edi]
-  or al, 0x20           # set immediate bit
-  stosb
+  or byte ptr [edi-1], 0x20   # set immediate bit
   ret
 
 begin_dict_entry "literal" immediate
@@ -644,32 +650,38 @@ _literal:
 
   mov al, 0xb8
   stosb
-  dpop eax          # value comes from the data stack
+  dpop eax          # value comes from data stack
   stosd
   compile_dpush_eax
   mov [here], edi
   ret
 
 begin_dict_entry "compile,"
+# ( xt -- )
 _compile_comma:
   mov edi, [here]   # next free location in dictionary
   mov al, 0xe8      # compile CALL instruction
   stosb
   push edi
   add edi, 4        # address of location after CALL instruction
-  dpop eax      # xt (word address)
-  sub eax, edi      # convert to relative
+  dpop eax          # xt (word address)
+  sub eax, edi      # convert to relative offset
   pop edi
-  stosd
+  stosd             # patch CALL offset
   mov [here], edi
   ret
 
 begin_dict_entry "constant"
+# ( x "<name>" -- )
 _constant:
-  call _create
-  mov edi, [last_xt]
-  mov [here], edi       # overwrite code compiled by create
-  jmp _literal
+  call _create_dict_entry
+  mov edi, [here]
+  and byte ptr [edi-1], 0xbf  # clear smudge bit
+  call _literal
+  mov al, 0xc3                # compile RET
+  stosb
+  mov [here], edi
+  ret
 
 begin_dict_entry "state"
 _state:
@@ -774,7 +786,7 @@ compile_jump:
   mov al, ah
   stosb               # store second opcode byte
 1:
-  dpush edi       # address of branch offset
+  dpush edi           # address of branch offset
   xor eax, eax        # placeholder for branch offset (4 bytes)
   stosd
   mov [here], edi
@@ -799,20 +811,17 @@ compile_conditional_branch:
 
 begin_dict_entry ",jmpz"
 _comma_jmpz:
-  mov eax, 0x840f
-  push eax
+  push 0x840f
   jmp compile_conditional_branch
 
 begin_dict_entry ",jmpnz"
 _comma_jmpnz:
-  mov eax, 0x850f
-  push eax
+  push 0x850f
   jmp compile_conditional_branch
 
 begin_dict_entry ",jmp"
 _comma_jmp:
-  mov eax, 0xe9
-  push eax
+  push 0xe9
   jmp compile_jump
 
 begin_dict_entry "patch-jmp"
@@ -826,14 +835,11 @@ _patch_jmp:
   ret
 
 _start:
-  # return stack grows top -> down
+  # return stack grows downwards
   lea esp, [return_stack]
 
-  # data stack grows bottom -> up
+  # data stack grows upwards
   lea ebp, [data_stack]
-
-  # esi: parse area pointer
-  lea esi, [parse_area]
 
   lea eax, [dictionary]
   mov [here], eax
@@ -847,11 +853,11 @@ parse_word:
   or ebx, ebx
   jz unknown_word
 
-  mov cl, [ebx-1]   # namelen
   mov eax, [state]
   or eax, eax       # interpreting?
   jz execute_word
 
+  mov cl, [ebx-1]   # namelen
   test cl, 0x20     # is word immediate?
   jnz execute_word  # yes: execute it
 
@@ -888,6 +894,8 @@ yes_digit:
   ret
 
 unknown_word:
+  lea esi, [source]
+  add esi, [source_index]
   mov edx, esi      # first byte of unknown word
 
   mov bl, [esi]
@@ -975,15 +983,18 @@ found_number:
   jz 1f               # leave number on stack
   call _literal       # compile code which pushes number to stack
 1:
+  sub esi, edx
+  add [source_index], esi
   jmp parse_word
 
 not_a_number:
-  call skip_until_whitespace
-  sub esi, edx
-  sys_write 1, edx, esi             # print unknown word
+  call _parse_name
+  dpop esi                    # len
+  dpop edx                    # addr
+  sys_write 1, edx, esi       # print unknown word
   mov eax, 0x3f
   dpush eax
-  call _emit                        # print '?'
+  call _emit                  # print '?'
   call _cr
   sys_exit 1
 
@@ -998,9 +1009,12 @@ state:
 digit_chars:
   .ascii "0123456789abcdefghijklmnopqrstuvwxyz"
 
-parse_area:
+source:
   .incbin "grund.g"
   .byte 0x0a        # sentinel
+
+source_index:
+  .dc.a 0
 
 .bss
 
@@ -1016,9 +1030,9 @@ last_xt:
 # return stack grows downwards
 
 data_stack:
-  .space 4096
+  .space 4 * $KiB
 return_stack:
 
 # definitions in grund.g will be compiled from here
 dictionary:
-  .space 1048576
+  .space 1 * $MiB
