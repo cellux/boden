@@ -91,7 +91,7 @@ $last_xt = 0
 
 .macro die msg
   jmp 0f
-$msg:
+$msg = .
   .ascii "\msg"
 $msg_len = . - $msg
 0:
@@ -918,17 +918,8 @@ _to_in:
   dpush eax
   ret
 
-_start:
-  lea esp, [return_stack]
-  lea ebp, [data_stack]
-
-  lea eax, [dictionary]
-  mov [here], eax
-
-  lea eax, [$last_xt]
-  mov [last_xt], eax
-
-parse_word:
+begin_dict_entry "interpret-1"
+_interpret_1:
   call _tick        # ( -- xt|0 )
   dpop ebx
   or ebx, ebx
@@ -944,12 +935,10 @@ parse_word:
 
 compile_word:
   dpush ebx
-  call _compile_comma
-  jmp parse_word
+  jmp _compile_comma
 
 execute_word:
-  call ebx
-  jmp parse_word
+  jmp ebx
 
 is_digit: # helper function
   # parameters:
@@ -1066,7 +1055,7 @@ found_number:
 1:
   sub esi, edx
   add [source_index], esi
-  jmp parse_word
+  ret
 
 not_a_number:
   call _parse_name
@@ -1078,6 +1067,23 @@ not_a_number:
   call _emit                  # print '?'
   call _cr
   sys_exit 1
+
+_start:
+  lea esp, [return_stack]
+  lea ebp, [data_stack]
+
+  lea eax, [dictionary]
+  mov [here], eax
+
+  lea eax, [$last_xt]
+  mov [last_xt], eax
+
+0:
+  call _interpret_1
+  lea ebx, [data_stack]
+  cmp ebp, ebx
+  jae 0b
+  die "stack underflow"
 
 .data
 
