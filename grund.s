@@ -901,6 +901,23 @@ _patch_jmp:
   stosd
   ret
 
+begin_dict_entry "source"
+# ( -- c-addr u )
+_source:
+  lea esi, [source]
+  dpush esi                   # address of 'input buffer'
+  lea eax, [source_end]
+  sub eax, esi
+  dpush eax                   # number of characters in 'input buffer'
+  ret
+
+begin_dict_entry ">in"
+  # ( -- a-addr )
+_to_in:
+  lea eax, [source_index]
+  dpush eax
+  ret
+
 _start:
   lea esp, [return_stack]
   lea ebp, [data_stack]
@@ -1076,6 +1093,7 @@ source_index:
 source:
   .incbin "grund.g"
   .byte 0x0a        # sentinel
+source_end:
 
 digit_chars:
   .ascii "0123456789abcdefghijklmnopqrstuvwxyz"

@@ -259,6 +259,11 @@ parse-name
 10 = assert
 @ $73696874 = assert
 
+\ >in
+source drop
+>in @ +
+c@ '+' = assert
+
 \ exit
 :noname 5 exit drop 3 ;
 execute 5 = assert
