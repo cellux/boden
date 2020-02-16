@@ -111,6 +111,7 @@ $msg_len = . - $msg
 # whitespace := space (0x20) | control character (0x00-0x1f)
 
 begin_dict_entry "skip-while-whitespace"
+# ( -- )
 _skip_while_whitespace:
   lea esi, [source]
   mov ebx, [source_index]
@@ -124,6 +125,7 @@ _skip_while_whitespace:
   jmp 0b
 
 begin_dict_entry "skip-until-whitespace"
+# ( -- )
 _skip_until_whitespace:
   lea esi, [source]
   mov ebx, [source_index]
@@ -143,19 +145,19 @@ _break:
   ret
 
 begin_dict_entry "cells"
-# ( u1 -- u2 )
+# ( n1 -- n2 )
 _cells:
   shl dword ptr [ebp-4], 2
   ret
 
 begin_dict_entry "cell+"
-# ( n1 -- n2 )
+# ( a-addr1 -- a-addr2 )
 _cell_plus:
   add dword ptr [ebp-4], 4
   ret
 
 begin_dict_entry "depth"
-# ( -- n )
+# ( -- +n )
 _depth:
   lea ebx, [data_stack]
   mov eax, ebp
@@ -183,7 +185,7 @@ _align:
   ret
 
 begin_dict_entry "parse"
-# ( char -- addr len )
+# ( char "ccc<char>" -- c-addr u )
 _parse:
   lea edi, [source]
   add edi, [source_index]
@@ -206,7 +208,7 @@ _parse:
   ret
 
 begin_dict_entry "parse-name"
-# ( -- addr len )
+# ( "<spaces>name<space>" -- c-addr u )
 _parse_name:
   call _skip_while_whitespace
   lea esi, [source]
@@ -230,7 +232,7 @@ _sys_exit:
   sys_exit eax
 
 begin_dict_entry "emit"
-# ( char -- )
+# ( x -- )
 _emit:
   sys_write 1, ebp-4, 1
   sub ebp, 4
@@ -243,7 +245,7 @@ _cr:
   jmp _emit
 
 begin_dict_entry "type"
-# ( addr len -- )
+# ( c-addr u -- )
 _type:
   dpop edi          # len
   dpop edx          # addr
@@ -273,7 +275,7 @@ _mod:
 
 .macro define_bin_op name
 begin_dict_entry "\name"
-# ( u1 u2 -- u3 )
+# ( x1 x2 -- x3 )
 _\name\():
   dpop ebx
   dpop eax
@@ -286,13 +288,13 @@ define_bin_op "and"
 define_bin_op "or"
 define_bin_op "xor"
 
-.macro define_shift_op name instr
+.macro define_shift_op name shift_inst
 begin_dict_entry "\name"
-# ( u1 u2 -- u3 )
+# ( x1 u -- x2 )
 _\name\():
   dpop ecx
   dpop eax
-  \instr eax, cl
+  \shift_inst eax, cl
   dpush eax
   ret
 .endm
@@ -300,15 +302,15 @@ _\name\():
 define_shift_op "lshift" , "shl"
 define_shift_op "rshift" , "shr"
 
-.macro define_cmp_op name label jinstr
+.macro define_cmp_op name label branch_inst
 begin_dict_entry "\name"
-# ( n1 n2 -- t|f )
+# ( n1 n2 -- flag )
 _\label\():
   dpop ebx
   dpop eax
   mov edx, -1       # true (equal)
   cmp eax, ebx
-  \jinstr 1f
+  \branch_inst 1f
   inc edx           # false (not equal)
 1:
   dpush edx
@@ -323,7 +325,7 @@ define_cmp_op ">=" , "ge" , jge
 define_cmp_op ">"  , "gt" , jg
 
 begin_dict_entry "invert"
-# ( n1 -- n2 )
+# ( x1 -- x2 )
 _invert:
   mov eax, [ebp-4]
   xor eax, -1
@@ -331,21 +333,21 @@ _invert:
   ret
 
 begin_dict_entry "+"
-# ( n1 n2 -- n3 )
+# ( n1|u1 n2|u2 -- n3|u3 )
 _add:
   dpop eax
   add [ebp-4], eax
   ret
 
 begin_dict_entry "-"
-# ( n1 n2 -- n3 )
+# ( n1|u1 n2|u2 -- n3|u3 )
 _sub:
   dpop eax
   sub [ebp-4], eax
   ret
 
 begin_dict_entry "*"
-# ( n1 n2 -- n3 )
+# ( n1|u1 n2|u2 -- n3|u3 )
 _mul:
   dpop eax
   imul dword ptr [ebp-4]
@@ -399,7 +401,7 @@ _dup:
   ret
 
 begin_dict_entry "drop"
-# ( x1 x2 -- x1 )
+# ( x -- )
 _drop:
   sub ebp, 4
   ret
@@ -420,7 +422,7 @@ _over:
   ret
 
 begin_dict_entry "pick"
-# ( x*i u -- x*i x )
+# ( x[u] ... x[1] x[0] u -- x[u] ... x[1] x[0] x[u] )
 _pick:
   dpop ebx
   shl ebx, 2
@@ -431,7 +433,7 @@ _pick:
   ret
 
 begin_dict_entry "roll"
-# ( x*i u -- x*i )
+# ( x[u] x[u-1] ... x[0] u --- x[u-1] ... x[0] x[u] )
 _roll:
   push esi
   dpop ebx
@@ -448,6 +450,7 @@ _roll:
   ret
 
 begin_dict_entry "2dup"
+# ( x1 x2 -- x1 x2 x1 x2 )
 _2dup:
   mov eax, [ebp-8]
   dpush eax
@@ -456,11 +459,13 @@ _2dup:
   ret
 
 begin_dict_entry "2drop"
+# ( x1 x2 -- )
 _2drop:
   sub ebp, 8
   ret
 
 begin_dict_entry "c@"
+# ( c-addr -- char )
 _char_at:
   dpop ebx
   movzx eax, byte ptr [ebx]
@@ -468,6 +473,7 @@ _char_at:
   ret
 
 begin_dict_entry "c!"
+# ( char c-addr -- )
 _c_bang:
   dpop edi
   dpop eax
@@ -475,6 +481,7 @@ _c_bang:
   ret
 
 begin_dict_entry "fill"
+# ( c-addr u char -- )
 _fill:
   dpop eax    # char
   dpop ecx    # len
@@ -483,18 +490,21 @@ _fill:
   ret
 
 begin_dict_entry "here"
+# ( -- addr)
 _here:
   mov eax, [here]
   dpush eax
   ret
 
 begin_dict_entry "allot"
+# ( n -- )
 _allot:
   dpop eax
   add [here], eax
   ret
 
 begin_dict_entry ","
+# ( x -- )
 _comma:
   mov edi, [here]
   dpop eax
@@ -503,6 +513,7 @@ _comma:
   ret
 
 begin_dict_entry "c,"
+# ( char -- )
 _c_comma:
   mov edi, [here]
   dpop eax
@@ -511,12 +522,14 @@ _c_comma:
   ret
 
 begin_dict_entry "base"
+# ( -- a-addr )
 _base:
   lea eax, [base]
   dpush eax
   ret
 
 begin_dict_entry "create-dict-entry"
+# ( "<spaces>name" -- )
 _create_dict_entry:
   call _parse_name        # ( -- addr len )
   mov edi, [here]
@@ -534,6 +547,7 @@ _create_dict_entry:
   ret
 
 begin_dict_entry "create"
+# ( "<spaces>name" -- )
 _create:
   call _create_dict_entry
   mov edi, [here]
@@ -566,6 +580,7 @@ _create:
   ret
 
 begin_dict_entry "'"
+# ( "<spaces>name" -- xt ) 
 _tick:
   call _parse_name
   dpop eax          # token length
@@ -610,6 +625,7 @@ word_not_found:
   ret
 
 begin_dict_entry "execute"
+# ( i*x xt -- j*x )
 _execute:
   dpop edi
   jmp edi
@@ -633,6 +649,7 @@ _semicolon:
   ret
 
 begin_dict_entry "immediate"
+# ( -- )
 _immediate:
   mov edi, [last_xt]
   or byte ptr [edi-1], 0x20   # set immediate bit
@@ -672,7 +689,7 @@ _compile_comma:
   ret
 
 begin_dict_entry "constant"
-# ( x "<name>" -- )
+# ( x "<spaces>name" -- )
 _constant:
   call _create_dict_entry
   mov edi, [here]
@@ -684,12 +701,14 @@ _constant:
   ret
 
 begin_dict_entry "state"
+# ( -- a-addr )
 _state:
   lea eax, [state]
   dpush eax
   ret
 
 begin_dict_entry "@"
+# ( a-addr -- x )
 _at:
   mov ebx, [ebp-4]
   mov eax, [ebx]
@@ -697,6 +716,7 @@ _at:
   ret
 
 begin_dict_entry "!"
+# ( x a-addr -- }
 _bang:
   dpop ebx
   dpop eax
@@ -704,6 +724,7 @@ _bang:
   ret
 
 begin_dict_entry ">r" immediate
+# ( x -- ) ( R: -- x )
 _to_r:
   mov edi, [here]
   compile_dpop_eax
@@ -713,6 +734,7 @@ _to_r:
   ret
 
 begin_dict_entry "r>" immediate
+# ( -- x ) ( R: x -- )
 _from_r:
   mov edi, [here]
   mov al, 0x58      # pop eax
@@ -722,6 +744,7 @@ _from_r:
   ret
 
 begin_dict_entry "r@" immediate
+# ( -- x ) ( R: x -- x )
 _at_r:
   mov edi, [here]
   mov ax, 0x5058                # pop eax, push eax
@@ -731,6 +754,7 @@ _at_r:
   ret
 
 begin_dict_entry "2>r" immediate
+# ( x1 x2 -- ) ( R: -- x1 x2 )
 _2_to_r:
   mov edi, [here]
   # push dword ptr [ebp-8]    FF 75 F8
@@ -746,6 +770,7 @@ _2_to_r:
   ret
 
 begin_dict_entry "2r>" immediate
+# ( -- x1 x2 ) ( R: x1 x2 -- )
 _2_from_r:
   mov edi, [here]
   # add ebp, 8                # 83 C5 08
@@ -761,6 +786,7 @@ _2_from_r:
   ret
 
 begin_dict_entry "2r@" immediate
+# ( -- x1 x2 ) ( R: x1 x2 -- x1 x2 )
 _2_at_r:
   mov edi, [here]
   # mov eax, [esp+4]          8B 44 24 04
@@ -777,7 +803,7 @@ _2_at_r:
   ret
 
 compile_jump:
-  # ( R: opcode -- S: address of branch offset )
+# ( -- branch-offset-addr ) ( R: opcode -- )
   mov edi, [here]
   pop eax             # opcode (JMP, JZ, JNZ)
   stosb
@@ -793,15 +819,15 @@ compile_jump:
   ret
 
 compile_conditional_branch:
-  # ( R: opcode -- S: address of branch offset )
-  #
-  # compile the following:
-  #
-  #   sub ebp, 4              83 ED 04
-  #   mov eax, [ebp]          8B 45 00
-  #   or eax, eax             09 C0
-  #   <opcode> <offset>       .. .. .. .. ..      for JMP
-  #                           .. .. .. .. .. ..   for Jcc
+# ( -- branch-offset-addr ) ( R: opcode -- )
+#
+# compile the following:
+#
+#   sub ebp, 4              83 ED 04
+#   mov eax, [ebp]          8B 45 00
+#   or eax, eax             09 C0
+#   <opcode> <offset>       .. .. .. .. ..      for JMP
+#                           .. .. .. .. .. ..   for Jcc
   mov edi, [here]
   compile_dpop_eax
   mov eax, 0xc009             # or eax, eax
@@ -829,16 +855,13 @@ _patch_jmp:
   # ( dest branch-offset-addr -- )
   dpop edi
   dpop eax
-  sub eax, edi
-  sub eax, 4        # offset counts from start of next instruction
+  sub eax, edi      # convert to relative offset
+  sub eax, 4        # offset counts from end of branch instruction
   stosd
   ret
 
 _start:
-  # return stack grows downwards
   lea esp, [return_stack]
-
-  # data stack grows upwards
   lea ebp, [data_stack]
 
   lea eax, [dictionary]
@@ -1006,15 +1029,15 @@ base:
 state:
   .dc.a 0
 
-digit_chars:
-  .ascii "0123456789abcdefghijklmnopqrstuvwxyz"
+source_index:
+  .dc.a 0
 
 source:
   .incbin "grund.g"
   .byte 0x0a        # sentinel
 
-source_index:
-  .dc.a 0
+digit_chars:
+  .ascii "0123456789abcdefghijklmnopqrstuvwxyz"
 
 .bss
 
