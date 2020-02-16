@@ -2,6 +2,7 @@
 .global _start
 
 .local $KiB,$MiB,$GiB
+
 $KiB = 1024
 $MiB = 1024 * $KiB
 $GiB = 1024 * $MiB
@@ -113,7 +114,7 @@ $msg_len = . - $msg
 begin_dict_entry "skip-while-whitespace"
 # ( -- )
 _skip_while_whitespace:
-  lea esi, [source]
+  lea esi, [source_start]
   mov ebx, [source_index]
 0:
   cmp byte ptr [esi+ebx], 0x20
@@ -127,7 +128,7 @@ _skip_while_whitespace:
 begin_dict_entry "skip-until-whitespace"
 # ( -- )
 _skip_until_whitespace:
-  lea esi, [source]
+  lea esi, [source_start]
   mov ebx, [source_index]
 0:
   cmp byte ptr [esi+ebx], 0x20
@@ -187,7 +188,7 @@ _align:
 begin_dict_entry "parse"
 # ( char "ccc<char>" -- c-addr u )
 _parse:
-  lea edi, [source]
+  lea edi, [source_start]
   add edi, [source_index]
   mov esi, edi
   dpop eax          # al = delimiter
@@ -211,12 +212,12 @@ begin_dict_entry "parse-name"
 # ( "<spaces>name<space>" -- c-addr u )
 _parse_name:
   call _skip_while_whitespace
-  lea esi, [source]
+  lea esi, [source_start]
   add esi, [source_index]
   dpush esi         # addr
   push esi
   call _skip_until_whitespace
-  lea ebx, [source]
+  lea ebx, [source_start]
   add ebx, [source_index]
   pop esi
   sub ebx, esi
@@ -657,7 +658,7 @@ word_found:
 
 word_not_found:
   # rewind source index to first character of unrecognized token
-  lea esi, [source]
+  lea esi, [source_start]
   sub edx, esi
   mov [source_index], edx
 
@@ -904,7 +905,7 @@ _patch_jmp:
 begin_dict_entry "source"
 # ( -- c-addr u )
 _source:
-  lea esi, [source]
+  lea esi, [source_start]
   dpush esi                   # address of 'input buffer'
   lea eax, [source_end]
   sub eax, esi
@@ -964,7 +965,7 @@ yes_digit:
   ret
 
 unknown_word:
-  lea esi, [source]
+  lea esi, [source_start]
   add esi, [source_index]
   mov edx, esi      # first byte of unknown word
 
@@ -1087,40 +1088,30 @@ _start:
 
 .data
 
-base:
-  .dc.a 10
+base:               .dc.a 10
+state:              .dc.a 0
 
-state:
-  .dc.a 0
-
-source_index:
-  .dc.a 0
-
-source:
+source_index:       .dc.a 0
+source_start:
   .incbin "grund.g"
   .byte 0x0a        # sentinel
 source_end:
 
-digit_chars:
-  .ascii "0123456789abcdefghijklmnopqrstuvwxyz"
+digit_chars:        .ascii "0123456789abcdefghijklmnopqrstuvwxyz"
 
 .bss
 
-here:
-  .dc.a 0
-
-last_xt:
-  .dc.a 0
+here:               .dc.a 0
+last_xt:            .dc.a 0
 
 # data and return stack use the same memory region
 #
-# data stack grows upwards
-# return stack grows downwards
+# data stack grows upwards, return stack grows downwards
 
 data_stack:
   .space 4 * $KiB
 return_stack:
 
-# definitions in grund.g will be compiled from here
+# definitions in grund.g will be compiled starting from here
 dictionary:
   .space 1 * $MiB
