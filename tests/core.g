@@ -246,6 +246,10 @@ here 4 mod 0= assert
 test-literal 690 = assert
 test-literal 690 = assert
 
+\ [']
+: test-['] 5 ['] 1+ execute ;
+test-['] 6 = assert
+
 \ parse bl
 : skip-until parse 2drop ;
 '#' skip-until these will be skipped #
@@ -362,6 +366,38 @@ again
 :noname
 0 begin 10 + dup 505 > until 510 = assert
 ; execute
+
+\ do loop
+:noname
+1 5 0 do 2 * loop 32 = assert
+64 8 2 do 2 / loop 1 = assert
+; execute
+
+\ i
+:noname
+0 11 1 do i + loop 55 = assert
+1 11 1 do i * loop 3628800 = assert
+; execute
+
+\ leave
+:noname
+0 10 0 do
+i +
+i 5 = if leave then
+i +
+loop
+25 = assert
+; execute
+
+\ unloop
+:noname
+0 10 0 do
+i +
+i 5 = if unloop exit then
+i +
+loop
+; execute
+25 = assert
 
 \ depth
 depth 0 = assert
