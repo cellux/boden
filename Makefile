@@ -13,11 +13,11 @@ modules += $(wildcard *_test.g)
 main := tmain.g
 endif
 
-$(BUILDDIR)/$(name): grund.s $(modules) $(main)
+$(BUILDDIR)/$(name): core.s $(modules) $(main)
 	mkdir -p $(BUILDDIR)
-	cat $(modules) $(main) > $(BUILDDIR)/grund.g
+	cat $(modules) $(main) > $(BUILDDIR)/grund_source.g
 	cd $(BUILDDIR) && \
-		as -g -almnc=$(name).lst -o $(name).o ../grund.s && \
+		as -g -almnc=$(name).lst -o $(name).o ../core.s && \
 		ld -o $(name) $(name).o
 
 test: $(BUILDDIR)/tgrund

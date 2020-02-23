@@ -1106,7 +1106,7 @@ state:              .dc.a 0
 
 source_index:       .dc.a 0
 source_start:
-  .incbin "grund.g"
+  .incbin "grund_source.g"
   .byte 0x0a        # sentinel
 source_end:
 
@@ -1125,6 +1125,6 @@ data_stack:
   .space 4 * $KiB
 return_stack:
 
-# definitions in grund.g will be compiled starting from here
+# definitions in grund_source.g will be compiled starting from here
 dictionary:
   .space 1 * $MiB
