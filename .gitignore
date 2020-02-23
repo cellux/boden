@@ -1,6 +1,1 @@
-grund
-tgrund
-grund.g
-*.all
-*.lst
-*.o
+/build/
