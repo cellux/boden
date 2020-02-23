@@ -116,6 +116,13 @@ $ffff8000 8 rshift $00ffff80 = assert
 0 0= assert
 1 0> assert
 
+\ dup
+1 2 3 dup
+3 = assert
+3 = assert
+2 = assert
+1 = assert
+
 \ nip
 depth 0 = assert
 5 3 depth 2 = assert
@@ -305,6 +312,7 @@ char abc $61 = assert
 \ constant
 10 constant ten
 ten 10 = assert
+ten 10 = assert
 
 \ >r r> r@
 :noname
@@ -432,3 +440,8 @@ test-buffer 3 cells + @ $87654321 = assert
 55
 :noname postpone-1+ ; execute
 56 = assert
+
+\ ?dup
+100 -1 ?dup -1 = assert -1 = assert 100 = assert
+101 0 ?dup 0 = assert 101 = assert
+102 1 ?dup 1 = assert 1 = assert 102 = assert

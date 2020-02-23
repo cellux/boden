@@ -85,3 +85,5 @@
 
 : max 2dup > if drop else nip then ;
 : min 2dup < if drop else nip then ;
+
+: ?dup dup dup if exit then drop ;
