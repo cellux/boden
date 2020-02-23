@@ -2,14 +2,14 @@ BUILDDIR := build
 
 name := grund
 modules := \
-	modules/core.g \
-	modules/extra.g \
-	modules/assembler.g
+	core.g \
+	extra.g \
+	assembler.g
 main := main.g
 
 ifeq ($(MAKECMDGOALS),test)
 name := tgrund
-modules += $(wildcard tests/*.g)
+modules += $(wildcard *_test.g)
 main := tmain.g
 endif
 
