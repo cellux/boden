@@ -5,7 +5,6 @@
 : 1+ 1 + ;
 : 1- 1 - ;
 : erase 0 fill ;
-: postpone ' compile, ; immediate
 : s" '"' parse swap postpone literal postpone literal ; immediate
 : bl $20 ;
 : space bl emit ;
@@ -40,48 +39,48 @@
 : until ,jmpz patch-jmp ; immediate
 
 : do
-  here 1+
+  here 1+           \ address of the value pushed to DS by the code compiled by LITERAL
   0
-  postpone literal
-  postpone >r       \ compile code which moves LEAVE target to RS
-  postpone >r       \ compile code which moves index to RS
-  postpone >r       \ compile code which moves limit to RS
+  postpone literal  \ push LEAVE target to DS
+  postpone >r       \ move LEAVE target to RS
+  postpone >r       \ move index to RS
+  postpone >r       \ move limit to RS
   here              \ target address of LOOP
   ; immediate
 
 : unloop
-  postpone r>       \ compile code which removes limit
-  ['] drop compile,
-  postpone r>       \ compile code which removes index
-  ['] drop compile,
-  postpone r>       \ compile code which removes LEAVE target
-  ['] drop compile,
+  postpone r>       \ remove limit
+  postpone drop
+  postpone r>       \ remove index
+  postpone drop
+  postpone r>       \ remove LEAVE target
+  postpone drop
   ; immediate
 
 : loop
-  postpone r>       \ compile code which moves limit to DS
-  postpone r>       \ compile code which moves index to DS
-  ['] 1+ compile,   \ compile code which increases index by one
-  postpone >r       \ compile code which moves index to RS
-  postpone >r       \ compile code which moves limit to RS
+  postpone r>       \ move limit to DS
+  postpone r>       \ move index to DS
+  postpone 1+       \ increase index by one
+  postpone >r       \ move index to RS
+  postpone >r       \ move limit to RS
   postpone 2r@
-  ['] = compile,    \ compile code which compares index with limit
-  ,jmpz patch-jmp   \ compile code which loops if result is false
+  postpone =        \ compare index with limit
+  ,jmpz patch-jmp   \ loop if result is false
   postpone unloop
   here swap !       \ patch LEAVE target
   ; immediate
 
 : i
   postpone 2r@
-  ['] drop compile,
+  postpone drop
   ; immediate
 
 : leave
-  postpone r>       \ compile code which removes limit
-  ['] drop compile,
-  postpone r>       \ compile code which removes index
-  ['] drop compile,
-  postpone exit     \ compile code which returns to LEAVE target on RS
+  postpone r>       \ remove limit
+  postpone drop
+  postpone r>       \ remove index
+  postpone drop
+  postpone exit     \ return to LEAVE target left on RS
   ; immediate
 
 : max 2dup > if drop else nip then ;

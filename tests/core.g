@@ -424,3 +424,11 @@ test-buffer @ $00345678 = assert
 test-buffer 1 cells + @ $9a000000 = assert
 test-buffer 2 cells + @ $0fedcba9 = assert
 test-buffer 3 cells + @ $87654321 = assert
+
+\ postpone shall append the compilation semantics of the word
+\ following it to the current definition
+: postpone-1+ postpone 1+ ; immediate
+
+55
+:noname postpone-1+ ; execute
+56 = assert

@@ -730,6 +730,19 @@ _compile_comma:
   mov [here], edi
   ret
 
+begin_dict_entry "postpone" immediate
+# ( "<spaces>name" -- )
+_postpone:
+  call _tick
+  mov ebx, [ebp-4]
+  mov cl, [ebx-1]   # namelen
+  test cl, 0x20     # immediate?
+  jnz _compile_comma
+  call _literal
+  lea ebx, [_compile_comma]
+  dpush ebx
+  jmp _compile_comma
+
 begin_dict_entry "constant"
 # ( x "<spaces>name" -- )
 _constant:
