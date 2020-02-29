@@ -1,27 +1,27 @@
 BUILDDIR := build
 
-name := grund
-modules := \
-	core.g \
-	extra.g \
-	assembler.g
-main := main.g
+name := boden
+sources := \
+	core.b \
+	extra.b \
+	assembler.b
+main := main.b
 
 ifeq ($(MAKECMDGOALS),test)
-name := tgrund
-modules += $(wildcard *_test.g)
-main := tmain.g
+name := boden_test
+sources += $(wildcard *_test.b)
+main := maint.b
 endif
 
-$(BUILDDIR)/$(name): core.s $(modules) $(main)
+$(BUILDDIR)/$(name): core.s $(sources) $(main)
 	mkdir -p $(BUILDDIR)
-	cat $(modules) $(main) > $(BUILDDIR)/grund_source.g
+	cat $(sources) $(main) > $(BUILDDIR)/boden.b
 	cd $(BUILDDIR) && \
 		as -g -almnc=$(name).lst -o $(name).o ../core.s && \
 		ld -o $(name) $(name).o
 
-test: $(BUILDDIR)/tgrund
-	@$(BUILDDIR)/tgrund
+test: $(BUILDDIR)/boden_test
+	@$(BUILDDIR)/boden_test
 
 .PHONY: clean
 clean:
