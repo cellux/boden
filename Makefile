@@ -1,24 +1,31 @@
-BUILDDIR := build
+MACHINE ?= $(shell uname -m)
 
-name := boden
-sources := \
-	core.b \
-	extra.b \
-	assembler.b
-main := main.b
-
-ifeq ($(MAKECMDGOALS),test)
-name := boden_test
-sources += $(wildcard *_test.b)
-main := maint.b
+ifeq ($(MACHINE),x86_64)
+core := core/x86_64.s
+else ifeq ($(MACHINE),i686)
+core := core/i686.s
+else
+$(error Unsupported machine: $(MACHINE))
 endif
 
-$(BUILDDIR)/$(name): core.s $(sources) $(main)
+BUILDDIR := build
+
+output := boden
+forth_libs := core.b extra.b
+forth_main := main.b
+
+ifeq ($(MAKECMDGOALS),test)
+output := boden_test
+forth_libs += $(wildcard *_test.b)
+forth_main := maint.b
+endif
+
+$(BUILDDIR)/$(output): $(core) $(forth_libs) $(forth_main)
 	mkdir -p $(BUILDDIR)
-	cat $(sources) $(main) > $(BUILDDIR)/boden.b
+	cat $(forth_libs) $(forth_main) > $(BUILDDIR)/boden.b
 	cd $(BUILDDIR) && \
-		as -g -almnc=$(name).lst -o $(name).o ../core.s && \
-		ld -o $(name) $(name).o
+		as -g -almnc=$(output).lst -o $(output).o ../$(core) && \
+		ld -o $(output) $(output).o
 
 test: $(BUILDDIR)/boden_test
 	@$(BUILDDIR)/boden_test

@@ -39,7 +39,7 @@
 : until ,jmpz patch-jmp ; immediate
 
 : do
-  here 1+           \ address of the value pushed to DS by the code compiled by LITERAL
+  here lit-offset + \ address of the value pushed to DS by the code compiled by LITERAL
   0
   postpone literal  \ push LEAVE target to DS
   postpone >r       \ move LEAVE target to RS

@@ -1,4 +1,8 @@
+.arch generic32
+.code32
+
 .intel_syntax noprefix
+
 .global _start
 
 .local $KiB,$MiB,$GiB
@@ -110,6 +114,12 @@ $msg_len = . - $msg
 .endm
 
 # whitespace := space (0x20) | control character (0x00-0x1f)
+
+begin_dict_entry "word-size"
+# ( -- n )
+_word_size:
+  dpush 4
+  ret
 
 begin_dict_entry "skip-while-whitespace"
 # ( -- )
@@ -434,7 +444,7 @@ _pick:
   ret
 
 begin_dict_entry "roll"
-# ( x[u] x[u-1] ... x[0] u --- x[u-1] ... x[0] x[u] )
+# ( x[u] x[u-1] ... x[0] u -- x[u-1] ... x[0] x[u] )
 _roll:
   push esi
   dpop ebx
@@ -622,7 +632,7 @@ _create:
   ret
 
 begin_dict_entry "'"
-# ( "<spaces>name" -- xt ) 
+# ( "<spaces>name" -- xt|0 )
 _tick:
   call _parse_name
   dpop eax          # token length
@@ -713,6 +723,11 @@ _literal:
   stosd
   compile_dpush_eax
   mov [here], edi
+  ret
+
+begin_dict_entry "lit-offset"
+_lit_offset:
+  dpush 1
   ret
 
 begin_dict_entry "compile,"
@@ -828,9 +843,9 @@ begin_dict_entry "2r>" immediate
 # ( -- x1 x2 ) ( R: x1 x2 -- )
 _2_from_r:
   mov edi, [here]
-  # add ebp, 8                # 83 C5 08
-  # pop dword ptr [ebp-4]     # 8F 45 FC
-  # pop dword ptr [ebp-8]     # 8F 45 F8
+  # add ebp, 8                83 C5 08
+  # pop dword ptr [ebp-4]     8F 45 FC
+  # pop dword ptr [ebp-8]     8F 45 F8
   mov eax, 0x8f08c583
   stosd
   mov eax, 0x458ffc45

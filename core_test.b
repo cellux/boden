@@ -71,7 +71,7 @@ $fa00 $ce or $face = assert
 1 1 lshift 2 = assert
 1 2 lshift 4 = assert
 1 3 lshift 8 = assert
--128 8 lshift $ffff8000 = assert
+-128 8 lshift $-8000 = assert
 
 \ rshift
 1 1 rshift 0 = assert
@@ -229,11 +229,10 @@ drop
 
 \ aligned
 0 aligned 0 = assert
-1 aligned 4 = assert
-2 aligned 4 = assert
-3 aligned 4 = assert
-4 aligned 4 = assert
-5 aligned 8 = assert
+1 aligned 1 cells = assert
+1 cells 1- aligned 1 cells = assert
+1 cells aligned 1 cells = assert
+1 cells 1+ aligned 2 cells = assert
 
 \ align
 5 here 4 mod - allot
@@ -262,13 +261,26 @@ test-['] 6 = assert
 '#' skip-until these will be skipped #
 bl parse moo ( -- addr len )
 3 = assert
-@ $206f6f6d = assert
+dup 0 + c@ 'm' = assert
+dup 1 + c@ 'o' = assert
+dup 2 + c@ 'o' = assert
+drop
 
 \ parse-name
 parse-name
    this-is-it
 10 = assert
-@ $73696874 = assert
+dup 0 + c@ 't' = assert
+dup 1 + c@ 'h' = assert
+dup 2 + c@ 'i' = assert
+dup 3 + c@ 's' = assert
+dup 4 + c@ '-' = assert
+dup 5 + c@ 'i' = assert
+dup 6 + c@ 's' = assert
+dup 7 + c@ '-' = assert
+dup 8 + c@ 'i' = assert
+dup 9 + c@ 't' = assert
+drop
 
 \ >in
 source drop
@@ -298,10 +310,10 @@ test-var @ $face1241 = assert
 test-var @ 1734 = assert
 
 \ cell+
-5 cell+ 9 = assert
+5 cell+ 5 word-size + = assert
 
 \ cells
-5 3 cells + 17 = assert
+5 3 cells + 5 word-size 3 * + = assert
 
 \ char
 char abc $61 = assert
@@ -414,27 +426,26 @@ drop depth 2 = assert
 drop depth 1 = assert
 drop depth 0 = assert
 
-create test-buffer 16 allot
+create test-buffer 64 allot
 
 \ fill
-test-buffer 16 $aa fill
+test-buffer 64 $aa fill
 test-buffer 3 + 4 $55 fill
-test-buffer @ $55aaaaaa = assert
-test-buffer 1 cells + @ $aa555555 = assert
+test-buffer @ $ffffffff and $55aaaaaa = assert
 
 \ erase
 $12345678 test-buffer !
-$9abcdef0 test-buffer 1 cells + !
-$0fedcba9 test-buffer 2 cells + !
-$87654321 test-buffer 3 cells + !
+$9abcdef0 test-buffer 4 + !
+$0fedcba9 test-buffer 8 + !
+$87654321 test-buffer 12 + !
 test-buffer 3 + 4 erase
-test-buffer @ $00345678 = assert
-test-buffer 1 cells + @ $9a000000 = assert
-test-buffer 2 cells + @ $0fedcba9 = assert
-test-buffer 3 cells + @ $87654321 = assert
+test-buffer @ $ffffffff and $00345678 = assert
+test-buffer 4 + @ $ffffffff and $9a000000 = assert
+test-buffer 8 + @ $ffffffff and $0fedcba9 = assert
+test-buffer 12 + @ $ffffffff and $87654321 = assert
 
-\ postpone shall append the compilation semantics of the word
-\ following it to the current definition
+\ postpone shall append the compilation semantics
+\ of the following word to the current definition
 : postpone-1+ postpone 1+ ; immediate
 
 55
