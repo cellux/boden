@@ -632,7 +632,7 @@ _create:
   ret
 
 begin_dict_entry "'"
-# ( "<spaces>name" -- xt|0 )
+# ( "<spaces>name" -- xt | c-addr u 0 )
 _tick:
   call _parse_name
   dpop eax          # token length
@@ -667,11 +667,8 @@ word_found:
   ret
 
 word_not_found:
-  # rewind source index to first character of unrecognized token
-  lea esi, [source_start]
-  sub edx, esi
-  mov [source_index], edx
-
+  dpush edx         # token address
+  dpush eax         # token length
   xor eax, eax
   dpush eax         # false
   ret
@@ -750,6 +747,15 @@ begin_dict_entry "postpone" immediate
 _postpone:
   call _tick
   mov ebx, [ebp-4]
+  or ebx, ebx
+  jnz 1f
+  dpop ebx
+  mov eax, 0x3f     # '?'
+  dpush eax
+  call _emit
+  call _type
+  die " (postpone)"
+1:
   mov cl, [ebx-1]   # namelen
   test cl, 0x20     # immediate?
   jnz _compile_comma
@@ -993,9 +999,8 @@ yes_digit:
   ret
 
 unknown_word:
-  lea esi, [source_start]
-  add esi, [source_index]
-  mov edx, esi      # first byte of unknown word
+# ( c-addr u )
+  mov esi, [ebp-8]  # first byte of unknown word
 
   mov bl, [esi]
   cmp bl, 0x27      # single quote?
@@ -1011,7 +1016,7 @@ unknown_word:
   jmp parse_number
 
 char_literal:
-  # parse area should match 'X'<blank>
+  # token should match 'X'<blank>
   mov bl, [esi+2]
   cmp bl, 0x27                  # single quote?
   jne not_a_number
@@ -1054,7 +1059,6 @@ check_first_digit:
 parse_digits:
   xor eax, eax
   xor ebx, ebx
-  push edx
 
 parse_digit:
   mov bl, [esi]
@@ -1067,7 +1071,6 @@ parse_digit:
   jmp parse_digit
 
 end_of_number:
-  pop edx
   mov bl, [esi]
   cmp bl, 0x20        # character after last digit is not whitespace?
   ja not_a_number
@@ -1076,24 +1079,22 @@ end_of_number:
   neg eax
 
 found_number:
+  sub ebp, 8          # drop token address and length
   dpush eax
   mov ebx, [state]
   or ebx, ebx         # interpreting?
   jz 1f               # leave number on stack
   call _literal       # compile code which pushes number to stack
 1:
-  sub esi, edx
-  add [source_index], esi
   ret
 
 not_a_number:
-  call _parse_name
-  dpop esi                    # len
-  dpop edx                    # addr
-  sys_write 1, edx, esi       # print unknown word
   mov eax, 0x3f
   dpush eax
   call _emit                  # print '?'
+  dpop esi                    # len
+  dpop edx                    # addr
+  sys_write 1, edx, esi       # print unknown word
   call _cr
   sys_exit 1
 

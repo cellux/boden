@@ -634,7 +634,7 @@ _create:
   ret
 
 begin_dict_entry "'"
-# ( "<spaces>name" -- xt|0 )
+# ( "<spaces>name" -- xt | c-addr u 0 )
 _tick:
   call _parse_name
   dpop rax          # token length
@@ -669,11 +669,8 @@ word_found:
   ret
 
 word_not_found:
-  # rewind source index to first character of unrecognized token
-  lea rsi, [source_start]
-  sub rdx, rsi
-  mov [source_index], rdx
-
+  dpush rdx         # token address
+  dpush rax         # token length
   xor rax, rax
   dpush rax         # false
   ret
@@ -752,6 +749,15 @@ begin_dict_entry "postpone" immediate
 _postpone:
   call _tick
   mov rbx, [rbp-8]
+  or rbx, rbx
+  jnz 1f
+  dpop rbx
+  mov rax, 0x3f     # '?'
+  dpush rax
+  call _emit
+  call _type
+  die " (postpone)"
+1:
   mov cl, [rbx-1]   # namelen
   test cl, 0x20     # immediate?
   jnz _compile_comma
@@ -993,9 +999,8 @@ yes_digit:
   ret
 
 unknown_word:
-  lea rsi, [source_start]
-  add rsi, [source_index]
-  mov rdx, rsi      # first byte of unknown word
+# ( c-addr u )
+  mov rsi, [rbp-16] # first byte of unknown word
 
   mov bl, [rsi]
   cmp bl, 0x27      # single quote?
@@ -1011,7 +1016,7 @@ unknown_word:
   jmp parse_number
 
 char_literal:
-  # parse area should match 'X'<blank>
+  # token should match 'X'<blank>
   mov bl, [rsi+2]
   cmp bl, 0x27                  # single quote?
   jne not_a_number
@@ -1054,7 +1059,6 @@ check_first_digit:
 parse_digits:
   xor rax, rax
   xor rbx, rbx
-  push rdx
 
 parse_digit:
   mov bl, [rsi]
@@ -1067,7 +1071,6 @@ parse_digit:
   jmp parse_digit
 
 end_of_number:
-  pop rdx
   mov bl, [rsi]
   cmp bl, 0x20        # character after last digit is not whitespace?
   ja not_a_number
@@ -1076,24 +1079,22 @@ end_of_number:
   neg rax
 
 found_number:
+  sub rbp, 16         # drop token address and length
   dpush rax
   mov rbx, [state]
   or rbx, rbx         # interpreting?
   jz 1f               # leave number on stack
   call _literal       # compile code which pushes number to stack
 1:
-  sub rsi, rdx
-  add [source_index], rsi
   ret
 
 not_a_number:
-  call _parse_name
-  dpop rsi                    # len
-  dpop rdx                    # addr
-  sys_write 1, rdx, rsi       # print unknown word
   mov rax, 0x3f
   dpush rax
   call _emit                  # print '?'
+  dpop rsi                    # len
+  dpop rdx                    # addr
+  sys_write 1, rdx, rsi       # print unknown word
   call _cr
   sys_exit 1
 

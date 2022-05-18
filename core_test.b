@@ -243,6 +243,8 @@ here 4 mod 0= assert
 \ tick execute
 5 ' dup execute * 25 = assert
 9 ' dup execute * 81 = assert
+: no-such-word-string s" no-such-word" ;
+' no-such-word 0 = assert no-such-word-string compare 0 = assert
 
 \ swap
 5 7 swap 5 = assert 7 = assert
