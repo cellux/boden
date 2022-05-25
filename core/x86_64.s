@@ -887,7 +887,7 @@ compile_jump:
   stosb               # store second opcode byte
 1:
   dpush rdi           # address of branch offset
-  xor rax, rax        # placeholder for branch offset (4 bytes)
+  xor rax, rax        # placeholder for branch offset (8 bytes)
   stosd
   mov [here], rdi
   ret
@@ -900,8 +900,8 @@ compile_conditional_branch:
 #   sub rbp, 8              48 83 ED 08
 #   mov rax, [rbp]          48 8B 45 00
 #   or rax, rax             48 09 C0
-#   <opcode> <offset>       .. .. .. .. ..      for JMP
-#                           .. .. .. .. .. ..   for Jcc
+#   <opcode> <offset>       .. .. .. .. .. .. .. .. ..     for JMP
+#                           .. .. .. .. .. .. .. .. .. ..  for Jcc
   mov rdi, [here]
   compile_dpop_rax
   mov al, 0x48              # REX prefix
@@ -955,7 +955,7 @@ _to_in:
 
 begin_dict_entry "interpret-1"
 _interpret_1:
-  call _tick        # ( -- xt|0 )
+  call _tick        # ( -- xt | c-addr u 0 )
   dpop rbx
   or rbx, rbx
   jz unknown_word
