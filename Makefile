@@ -12,7 +12,7 @@ else
 $(error Unsupported machine: $(MACHINE))
 endif
 
-BUILDDIR := build
+BUILDDIR := build/$(MACHINE)
 
 output := boden
 forth_libs := core.b extra.b
@@ -28,7 +28,7 @@ $(BUILDDIR)/$(output): $(core) $(forth_libs) $(forth_main)
 	mkdir -p $(BUILDDIR)
 	cat $(forth_libs) $(forth_main) > $(BUILDDIR)/boden.b
 	cd $(BUILDDIR) && \
-		as $(as_flags) -g -almnc=$(output).lst -o $(output).o ../$(core) && \
+		as $(as_flags) -g -almnc=$(output).lst -o $(output).o ../../$(core) && \
 		ld $(ld_flags) -o $(output) $(output).o
 
 test: $(BUILDDIR)/boden_test
@@ -36,4 +36,4 @@ test: $(BUILDDIR)/boden_test
 
 .PHONY: clean
 clean:
-	rm -rf $(BUILDDIR)
+	rm -rf build
