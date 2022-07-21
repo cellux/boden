@@ -12,7 +12,6 @@
 : chars ;
 : char parse-name drop c@ ;
 : variable create 1 cells allot ;
-: exit $c3 c, ; immediate
 : 0= 0 = ;
 : 0< 0 < ;
 : 0> 0 > ;
@@ -26,10 +25,10 @@
 : [ 0 state ! ; immediate
 : ] -1 state ! ; immediate
 : ['] ' postpone literal ; immediate
-: :noname here postpone ] ; immediate
+: :noname here postpone ] ;
 
 : if ,jmpz ; immediate
-: else here 5 + swap patch-jmp ,jmp ; immediate
+: else here $jmp/size + swap patch-jmp ,jmp ; immediate
 : then here swap patch-jmp ; immediate
 
 : begin here ; immediate
@@ -39,7 +38,7 @@
 : until ,jmpz patch-jmp ; immediate
 
 : do
-  here lit-offset + \ address of the value pushed to DS by the code compiled by LITERAL
+  here $literal/offset + \ address of the value pushed to DS by the code compiled by LITERAL
   0
   postpone literal  \ push LEAVE target to DS
   postpone >r       \ move LEAVE target to RS

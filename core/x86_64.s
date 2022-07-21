@@ -119,7 +119,7 @@ $msg_len = . - $msg
 
 # whitespace := space (0x20) | control character (0x00-0x1f)
 
-begin_dict_entry "word-size"
+begin_dict_entry "$word-size"
 # ( -- n )
 _word_size:
   dpush 8
@@ -724,7 +724,7 @@ _literal:
   mov [here], rdi
   ret
 
-begin_dict_entry "lit-offset"
+begin_dict_entry "$literal/offset"
 _lit_offset:
   dpush 2
   ret
@@ -876,6 +876,11 @@ _2_at_r:
   mov [here], rdi
   ret
 
+begin_dict_entry "$jmp/size"
+_jmp_size:
+  dpush 5             # size of a relative jump instruction (OP .. .. .. ..)
+  ret
+
 compile_jump:
 # ( -- branch-offset-addr ) ( R: opcode -- )
   mov rdi, [here]
@@ -934,6 +939,14 @@ _patch_jmp:
   sub rax, rdi      # convert to relative offset
   sub rax, 4        # offset counts from end of branch instruction
   stosd
+  ret
+
+begin_dict_entry "exit" immediate
+_exit:
+  mov rdi, [here]
+  mov al, 0xc3
+  stosb
+  mov [here], rdi
   ret
 
 begin_dict_entry "source"

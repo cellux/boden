@@ -312,10 +312,10 @@ test-var @ $face1241 = assert
 test-var @ 1734 = assert
 
 \ cell+
-5 cell+ 5 word-size + = assert
+5 cell+ 5 $word-size + = assert
 
 \ cells
-5 3 cells + 5 word-size 3 * + = assert
+5 3 cells + 5 $word-size 3 * + = assert
 
 \ char
 char abc $61 = assert
