@@ -217,6 +217,29 @@ dup 12 + c@ $21 = assert \ !
 drop
 ; execute
 
+\ create
+create my-var 1234 ,
+my-var @ 1234 = assert
+
+\ >body
+' my-var >body @ 1234 = assert
+
+\ does>
+: does1 does> @ 1 + ;
+: does2 does> @ 2 + ;
+create my-var 1234 ,
+my-var @ 1234 = assert
+does1
+my-var 1235 = assert
+does2
+my-var 1236 = assert
+
+: weird: create does> 1 + does> 2 + ;
+weird: w1
+' w1 >body here = assert
+w1 here 1 + = assert
+w1 here 2 + = assert
+
 \ colon
 : square dup * ;
 5 square 25 = assert

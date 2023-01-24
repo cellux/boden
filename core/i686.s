@@ -11,9 +11,15 @@ $KiB = 1024
 $MiB = 1024 * $KiB
 $GiB = 1024 * $MiB
 
+$IMMEDIATE_BIT = 0x20
+$SMUDGE_BIT    = 0x40
+
+$COMPILE_STATE    = -1
+$INTERPRET_STATE  =  0
+
 .text
 
-/* interface to linux syscalls */
+/* linux syscalls */
 
 .macro sys_exit status
   mov ebx, \status
@@ -51,7 +57,7 @@ $last_xt = 0
   $name_len = . - 0b
   $control_bits = 0
   .ifnb \immediate
-    $control_bits = $control_bits | 0x20
+    $control_bits = $control_bits | $IMMEDIATE_BIT
   .endif
   .dc.b $name_len | $control_bits
   $last_xt = .
@@ -62,7 +68,7 @@ $last_xt = 0
 #
 # data/returns stacks share the same memory region
 #
-# data stack grows upwards, return stack downwards
+# data stack at bottom, return stack on top
 
 .macro dpush src
   mov dword ptr [ebp], \src
@@ -78,9 +84,9 @@ $last_xt = 0
   stosw
 .endm
 
-.macro dpop dst
+.macro dpop dest
   sub ebp, 4
-  mov \dst, dword ptr [ebp]
+  mov \dest, dword ptr [ebp]
 .endm
 
 .macro compile_dpop_eax
@@ -592,7 +598,7 @@ _create_dict_entry:
   push ecx
   rep movsb               # name
   pop eax
-  or al, 0x40             # set smudge bit
+  or al, $SMUDGE_BIT      # set smudge bit
   stosb                   # namelen
   mov [last_xt], edi
   mov [here], edi
@@ -603,15 +609,17 @@ begin_dict_entry "create"
 _create:
   call _create_dict_entry
   mov edi, [here]
-  and byte ptr [edi-1], 0xbf  # clear smudge bit
+  and byte ptr [edi-1], ~$SMUDGE_BIT  # clear smudge bit
 
-  # now compile the following:
+  # compile code that pushes address of data field to stack:
   #
   #   mov eax, data       B8 .. .. .. ..
   #   mov [ebp], eax      89 45 00
   #   add ebp, 4          83 C5 04
-  #   ret                 C3
+  #   ret                 C3            # to be replaced with JMP by DOES>
   #
+  # branch offset for DOES>:
+  #                       .. .. .. ..
   # data:
 
   mov al, 0xb8
@@ -625,50 +633,59 @@ _create:
   mov al, 0xc3
   stosb
   mov eax, edi
+  add eax, 4              # skip branch offset reserved for DOES>
   align_reg eax           # align to cell boundary
   mov [here], eax
   pop edi
   stosd                   # patch aligned address into data pointer
   ret
 
+begin_dict_entry ">body"
+# ( xt -- a-addr )
+_body:
+  dpop ebx
+  mov eax, [ebx+1]  # address of data field in CREATEd word
+  dpush eax
+  ret
+
 begin_dict_entry "'"
 # ( "<spaces>name" -- xt | c-addr u 0 )
 _tick:
-  call _parse_name
-  dpop eax          # token length
-  dpop edx          # token address
+  call _parse_name  # ( -- addr len )
+  dpop eax
+  dpop edx
 
   mov ebx, [last_xt]
 
-compare_next:
+compare_name:
   or ebx,ebx        # no more words in the dictionary?
   jz word_not_found
 
   mov edi, ebx      # xt
   dec edi
   mov cl, [edi]     # namelen
-  and ecx, 0x1f     # zero out all other bits, max(namelen) = 31
+  and ecx, 0x1f     # strip control bits, max(namelen) = 31
   sub edi, ecx      # first character of name
   mov ebx, [edi-4]  # previous xt from link field
   cmp cl, al        # length matches?
-  jne compare_next
+  jne compare_name
 
   mov esi, edx
   repe cmpsb        # characters match?
-  jne compare_next
+  jne compare_name
 
 word_found:
   mov cl, [edi]
-  test cl, 0x40     # smudge bit set?
-  jnz compare_next  # yes: ignore this word
+  test cl, $SMUDGE_BIT      # smudge bit set?
+  jnz compare_name          # yes: ignore this word
 
-  inc edi           # skip over namelen, edi = xt
-  dpush edi         # true
+  inc edi                   # skip over namelen, edi = xt
+  dpush edi
   ret
 
 word_not_found:
-  dpush edx         # token address
-  dpush eax         # token length
+  dpush edx         # name address
+  dpush eax         # name length
   xor eax, eax
   dpush eax         # false
   ret
@@ -682,7 +699,7 @@ _execute:
 begin_dict_entry ":"
 _colon:
   call _create_dict_entry
-  mov dword ptr [state], -1   # set compilation state
+  mov dword ptr [state], $COMPILE_STATE
   ret
 
 begin_dict_entry ";" immediate
@@ -693,22 +710,23 @@ _semicolon:
   align_reg edi
   mov [here], edi
   mov edi, [last_xt]
-  and byte ptr [edi-1], 0xbf  # clear smudge bit
-  mov dword ptr [state], 0    # set interpretation state
+  and byte ptr [edi-1], ~$SMUDGE_BIT
+  mov dword ptr [state], $INTERPRET_STATE
   ret
 
 begin_dict_entry "immediate"
 # ( -- )
 _immediate:
   mov edi, [last_xt]
-  or byte ptr [edi-1], 0x20   # set immediate bit
+  or byte ptr [edi-1], $IMMEDIATE_BIT
   ret
 
 begin_dict_entry "literal" immediate
+# ( x -- )
 _literal:
   mov edi, [here]
 
-  # now compile the following:
+  # compile code that pushes literal value to data stack:
   #
   #   mov eax, value      B8 .. .. .. ..
   #   mov [ebp], eax      89 45 00
@@ -745,19 +763,19 @@ _compile_comma:
 begin_dict_entry "postpone" immediate
 # ( "<spaces>name" -- )
 _postpone:
-  call _tick
+  call _tick                  # ( -- xt | c-addr u 0 )
   mov ebx, [ebp-4]
   or ebx, ebx
   jnz 1f
   dpop ebx
-  mov eax, 0x3f     # '?'
+  mov eax, 0x3f               # '?'
   dpush eax
   call _emit
   call _type
   die " (postpone)"
 1:
-  mov cl, [ebx-1]   # namelen
-  test cl, 0x20     # immediate?
+  mov cl, [ebx-1]             # namelen
+  test cl, $IMMEDIATE_BIT     # immediate?
   jnz _compile_comma
   call _literal
   lea ebx, [_compile_comma]
@@ -769,9 +787,9 @@ begin_dict_entry "constant"
 _constant:
   call _create_dict_entry
   mov edi, [here]
-  and byte ptr [edi-1], 0xbf  # clear smudge bit
+  and byte ptr [edi-1], ~$SMUDGE_BIT
   call _literal
-  mov al, 0xc3                # compile RET
+  mov al, 0xc3  # RET
   stosb
   mov [here], edi
   ret
@@ -902,7 +920,7 @@ compile_jump:
 compile_conditional_branch:
 # ( -- branch-offset-addr ) ( R: opcode -- )
 #
-# compile the following:
+# test value on top of data stack and branch if one of the flags is true:
 #
 #   sub ebp, 4              83 ED 04
 #   mov eax, [ebp]          8B 45 00
@@ -941,6 +959,20 @@ _patch_jmp:
   stosd
   ret
 
+begin_dict_entry "does>"
+# ( -- )
+_does:
+  pop ebx                 # take address of instruction following the DOES> that brought us here
+  dpush ebx               # will be used as jump target
+  mov edi, [last_xt]
+  add edi, 11             # address of RET instruction laid down by CREATE
+  mov ebx, [here]
+  mov [here], edi
+  call _comma_jmp         # overwrite RET with a JMP instruction
+  call _patch_jmp         # patch in jump target
+  mov [here], ebx
+  ret                     # return to the word which called the word that included DOES>
+
 begin_dict_entry "exit" immediate
 _exit:
   mov edi, [here]
@@ -968,18 +1000,18 @@ _to_in:
 
 begin_dict_entry "interpret-1"
 _interpret_1:
-  call _tick        # ( -- xt|0 )
+  call _tick                  # ( -- xt|0 )
   dpop ebx
   or ebx, ebx
   jz unknown_word
 
   mov eax, [state]
-  or eax, eax       # interpreting?
+  or eax, eax                 # interpreting?
   jz execute_word
 
-  mov cl, [ebx-1]   # namelen
-  test cl, 0x20     # is word immediate?
-  jnz execute_word  # yes: execute it
+  mov cl, [ebx-1]             # namelen
+  test cl, $IMMEDIATE_BIT     # immediate?
+  jnz execute_word            # yes: execute it
 
 compile_word:
   dpush ebx
@@ -988,13 +1020,13 @@ compile_word:
 execute_word:
   jmp ebx
 
-is_digit: # helper function
-  # parameters:
+is_digit:
+  # receives:
   #   ebx: ASCII value to parse
   #   edi: radix (base)
   #
   # returns:
-  #   ebx: numeric value of digit, -1 if ebx is not a digit
+  #   ebx: numeric value of digit, -1 if not a digit
 
   cmp ebx, 0x30
   jb not_digit
@@ -1148,12 +1180,16 @@ last_xt:            .dc.a 0
 
 # data and return stack use the same memory region
 #
-# data stack grows upwards, return stack grows downwards
+# data stack at bottom, return stack on top
 
 data_stack:
   .space 4 * $KiB
 return_stack:
 
+.align 4096
+
 # definitions in boden.b will be compiled starting from here
 dictionary:
   .space 1 * $MiB
+dictionary_end:
+dictionary_size = dictionary_end - dictionary

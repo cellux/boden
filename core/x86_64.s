@@ -11,9 +11,15 @@ $KiB = 1024
 $MiB = 1024 * $KiB
 $GiB = 1024 * $MiB
 
+$IMMEDIATE_BIT = 0x20
+$SMUDGE_BIT    = 0x40
+
+$COMPILE_STATE    = -1
+$INTERPRET_STATE  =  0
+
 .text
 
-/* interface to linux syscalls */
+/* linux syscalls */
 
 .macro sys_exit status
   mov rdi, \status
@@ -59,7 +65,7 @@ $last_xt = 0
   $name_len = . - 0b
   $control_bits = 0
   .ifnb \immediate
-    $control_bits = $control_bits | 0x20
+    $control_bits = $control_bits | $IMMEDIATE_BIT
   .endif
   .dc.b $name_len | $control_bits
   $last_xt = .
@@ -70,7 +76,7 @@ $last_xt = 0
 #
 # data/returns stacks share the same memory region
 #
-# data stack grows upwards, return stack downwards
+# data stack at bottom, return stack on top
 
 .macro dpush src
   mov qword ptr [rbp], \src
@@ -84,9 +90,9 @@ $last_xt = 0
   stosq
 .endm
 
-.macro dpop dst
+.macro dpop dest
   sub rbp, 8
-  mov \dst, qword ptr [rbp]
+  mov \dest, qword ptr [rbp]
 .endm
 
 .macro compile_dpop_rax
@@ -596,7 +602,7 @@ _create_dict_entry:
   push rcx
   rep movsb               # name
   pop rax
-  or al, 0x40             # set smudge bit
+  or al, $SMUDGE_BIT      # set smudge bit
   stosb                   # namelen
   mov [last_xt], rdi
   mov [here], rdi
@@ -607,70 +613,81 @@ begin_dict_entry "create"
 _create:
   call _create_dict_entry
   mov rdi, [here]
-  and byte ptr [rdi-1], 0xbf  # clear smudge bit
+  and byte ptr [rdi-1], ~$SMUDGE_BIT  # clear smudge bit
 
-  # now compile the following:
+  # compile code that pushes address of data field to stack:
   #
   #   mov rax, data       48 B8 .. .. .. .. .. .. .. ..
   #   mov [rbp], rax      48 89 45 00
   #   add rbp, 8          48 83 C5 08
-  #   ret                 C3
+  #   ret                 C3            # to be replaced with JMP by DOES>
   #
+  # branch offset for DOES>:
+  #                       .. .. .. ..
   # data:
 
   mov ax, 0xb848
   stosw
   push rdi
-  add rdi, 8              # leave space for data pointer
+  add rdi, 8                  # leave space for data pointer
   mov rax, 0x08c5834800458948
   stosq
   mov al, 0xc3
   stosb
   mov rax, rdi
-  align_reg rax           # align to cell boundary
+  add rax, 4                  # skip branch offset reserved for DOES>
+  align_reg rax               # align to cell boundary
   mov [here], rax
   pop rdi
-  stosq                   # patch aligned address into data pointer
+  stosq                       # patch aligned address into data pointer
+  ret
+
+begin_dict_entry ">body"
+# ( xt -- a-addr )
+_body:
+  dpop rbx
+  mov rax, [rbx+2]  # address of data field in CREATEd word
+  dpush rax
   ret
 
 begin_dict_entry "'"
 # ( "<spaces>name" -- xt | c-addr u 0 )
 _tick:
-  call _parse_name
-  dpop rax          # token length
-  dpop rdx          # token address
+  call _parse_name  # ( -- addr len )
+  dpop rax
+  dpop rdx
 
   mov rbx, [last_xt]
 
-compare_next:
+compare_name:
   or rbx,rbx        # no more words in the dictionary?
   jz word_not_found
 
   mov rdi, rbx      # xt
   dec rdi
   mov cl, [rdi]     # namelen
-  and rcx, 0x1f     # zero out all other bits, max(namelen) = 31
+  and rcx, 0x1f     # strip control bits, max(namelen) = 31
   sub rdi, rcx      # first character of name
   mov rbx, [rdi-8]  # previous xt from link field
   cmp cl, al        # length matches?
-  jne compare_next
+  jne compare_name
 
   mov rsi, rdx
   repe cmpsb        # characters match?
-  jne compare_next
+  jne compare_name
 
 word_found:
   mov cl, [rdi]
-  test cl, 0x40     # smudge bit set?
-  jnz compare_next  # yes: ignore this word
+  test cl, $SMUDGE_BIT      # smudge bit set?
+  jnz compare_name          # yes: ignore this word
 
-  inc rdi           # skip over namelen, rdi = xt
-  dpush rdi         # true
+  inc rdi                   # skip over namelen, rdi = xt
+  dpush rdi
   ret
 
 word_not_found:
-  dpush rdx         # token address
-  dpush rax         # token length
+  dpush rdx         # name address
+  dpush rax         # name length
   xor rax, rax
   dpush rax         # false
   ret
@@ -684,7 +701,7 @@ _execute:
 begin_dict_entry ":"
 _colon:
   call _create_dict_entry
-  mov qword ptr [state], -1   # set compilation state
+  mov qword ptr [state], $COMPILE_STATE
   ret
 
 begin_dict_entry ";" immediate
@@ -695,22 +712,23 @@ _semicolon:
   align_reg rdi
   mov [here], rdi
   mov rdi, [last_xt]
-  and byte ptr [rdi-1], 0xbf  # clear smudge bit
-  mov qword ptr [state], 0    # set interpretation state
+  and byte ptr [rdi-1], ~$SMUDGE_BIT
+  mov qword ptr [state], $INTERPRET_STATE
   ret
 
 begin_dict_entry "immediate"
 # ( -- )
 _immediate:
   mov rdi, [last_xt]
-  or byte ptr [rdi-1], 0x20   # set immediate bit
+  or byte ptr [rdi-1], $IMMEDIATE_BIT
   ret
 
 begin_dict_entry "literal" immediate
+# ( x -- )
 _literal:
   mov rdi, [here]
 
-  # now compile the following:
+  # compile code that pushes literal value to data stack:
   #
   #   mov rax, value      48 B8 .. .. .. .. .. .. .. ..
   #   mov [rbp], rax      48 89 45 00
@@ -747,19 +765,19 @@ _compile_comma:
 begin_dict_entry "postpone" immediate
 # ( "<spaces>name" -- )
 _postpone:
-  call _tick
+  call _tick                  # ( -- xt | c-addr u 0 )
   mov rbx, [rbp-8]
   or rbx, rbx
   jnz 1f
   dpop rbx
-  mov rax, 0x3f     # '?'
+  mov rax, 0x3f               # '?'
   dpush rax
   call _emit
   call _type
   die " (postpone)"
 1:
-  mov cl, [rbx-1]   # namelen
-  test cl, 0x20     # immediate?
+  mov cl, [rbx-1]             # namelen
+  test cl, $IMMEDIATE_BIT     # immediate?
   jnz _compile_comma
   call _literal
   lea rbx, [_compile_comma]
@@ -771,9 +789,9 @@ begin_dict_entry "constant"
 _constant:
   call _create_dict_entry
   mov rdi, [here]
-  and byte ptr [rdi-1], 0xbf  # clear smudge bit
+  and byte ptr [rdi-1], ~$SMUDGE_BIT
   call _literal
-  mov al, 0xc3                # compile RET
+  mov al, 0xc3  # RET
   stosb
   mov [here], rdi
   ret
@@ -892,7 +910,7 @@ compile_jump:
   stosb               # store second opcode byte
 1:
   dpush rdi           # address of branch offset
-  xor rax, rax        # placeholder for branch offset (8 bytes)
+  xor rax, rax        # placeholder for branch offset (4 bytes)
   stosd
   mov [here], rdi
   ret
@@ -900,13 +918,13 @@ compile_jump:
 compile_conditional_branch:
 # ( -- branch-offset-addr ) ( R: opcode -- )
 #
-# compile the following:
+# test value on top of data stack and branch if one of the flags is true:
 #
 #   sub rbp, 8              48 83 ED 08
 #   mov rax, [rbp]          48 8B 45 00
 #   or rax, rax             48 09 C0
-#   <opcode> <offset>       .. .. .. .. .. .. .. .. ..     for JMP
-#                           .. .. .. .. .. .. .. .. .. ..  for Jcc
+#   <opcode> <offset>       .. .. .. .. ..      for JMP
+#                           .. .. .. .. .. ..   for Jcc
   mov rdi, [here]
   compile_dpop_rax
   mov al, 0x48              # REX prefix
@@ -941,6 +959,20 @@ _patch_jmp:
   stosd
   ret
 
+begin_dict_entry "does>"
+# ( -- )
+_does:
+  pop rbx                 # take address of instruction following the DOES> that brought us here
+  dpush rbx               # will be used as jump target
+  mov rdi, [last_xt]
+  add rdi, 18             # address of RET instruction laid down by CREATE
+  mov rbx, [here]
+  mov [here], rdi
+  call _comma_jmp         # overwrite RET with a JMP instruction
+  call _patch_jmp         # patch in jump target
+  mov [here], rbx
+  ret                     # return to the word which called the word that included DOES>
+
 begin_dict_entry "exit" immediate
 _exit:
   mov rdi, [here]
@@ -968,18 +1000,18 @@ _to_in:
 
 begin_dict_entry "interpret-1"
 _interpret_1:
-  call _tick        # ( -- xt | c-addr u 0 )
+  call _tick                  # ( -- xt | c-addr u 0 )
   dpop rbx
   or rbx, rbx
   jz unknown_word
 
   mov rax, [state]
-  or rax, rax       # interpreting?
+  or rax, rax                 # interpreting?
   jz execute_word
 
-  mov cl, [rbx-1]   # namelen
-  test cl, 0x20     # is word immediate?
-  jnz execute_word  # yes: execute it
+  mov cl, [rbx-1]             # namelen
+  test cl, $IMMEDIATE_BIT     # immediate?
+  jnz execute_word            # yes: execute it
 
 compile_word:
   dpush rbx
@@ -988,13 +1020,13 @@ compile_word:
 execute_word:
   jmp rbx
 
-is_digit: # helper function
-  # parameters:
+is_digit:
+  # receives:
   #   rbx: ASCII value to parse
   #   rdi: radix (base)
   #
   # returns:
-  #   rbx: numeric value of digit, -1 if rbx is not a digit
+  #   rbx: numeric value of digit, -1 if not a digit
 
   cmp rbx, 0x30
   jb not_digit
@@ -1160,7 +1192,7 @@ last_xt:            .dc.a 0
 
 # data and return stack use the same memory region
 #
-# data stack grows upwards, return stack grows downwards
+# data stack at bottom, return stack on top
 
 data_stack:
   .space 4 * $KiB
